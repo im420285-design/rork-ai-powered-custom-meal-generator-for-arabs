@@ -44,154 +44,133 @@ export const generatePlanProcedure = publicProcedure
     const fatPerMeal = Math.round(input.targets.fat / input.profile.mealsPerDay);
     const fiberPerMeal = Math.round(input.targets.fiber / input.profile.mealsPerDay);
 
-    const dietTypeDescriptions: Record<string, string> = {
-      keto: 'كيتو (قليل جداً من الكربوهيدرات، عالي الدهون)',
-      low_carb: 'قليل الكربوهيدرات',
-      high_protein: 'عالي البروتين',
-      balanced: 'متوازن',
-      intermittent_fasting: 'صيام متقطع',
-      mediterranean: 'البحر الأبيض المتوسط',
-      paleo: 'باليو',
-      vegan: 'نباتي',
-    };
-
-    const prompt = `أنت خبير تغذية متخصص في الطعام العربي. قم بتوليد خطة وجبات يومية كاملة بصيغة JSON.
-
-معلومات المستخدم:
-- العمر: ${input.profile.age} سنة
-- الوزن: ${input.profile.weight} كجم
-- الطول: ${input.profile.height} سم
-- الجنس: ${input.profile.gender === 'male' ? 'ذكر' : 'أنثى'}
-- مستوى النشاط: ${input.profile.activityLevel}
-- الهدف: ${input.profile.goal === 'lose' ? 'خسارة وزن' : input.profile.goal === 'gain' ? 'زيادة وزن' : 'الحفاظ على الوزن'}
-- نوع النظام الغذائي: ${input.profile.dietType ? dietTypeDescriptions[input.profile.dietType] : 'متوازن'}
-- عدد الوجبات: ${input.profile.mealsPerDay}
-
-الأهداف الغذائية اليومية:
-- السعرات: ${input.targets.calories} سعرة
-- البروتين: ${input.targets.protein} جرام
-- الكربوهيدرات: ${input.targets.carbs} جرام
-- الدهون: ${input.targets.fat} جرام
-- الألياف: ${input.targets.fiber} جرام
-
-القيود الغذائية: ${input.profile.dietaryRestrictions.length > 0 ? input.profile.dietaryRestrictions.join('، ') : 'لا يوجد'}
-الحساسية: ${input.profile.allergies.length > 0 ? input.profile.allergies.join('، ') : 'لا يوجد'}
-الحالات الصحية: ${input.profile.healthConditions.length > 0 ? input.profile.healthConditions.join('، ') : 'لا يوجد'}
-الأطعمة غير المرغوبة: ${input.profile.dislikedFoods.length > 0 ? input.profile.dislikedFoods.join('، ') : 'لا يوجد'}
-المطابخ المفضلة: ${input.profile.preferredCuisines.length > 0 ? input.profile.preferredCuisines.join('، ') : 'جميع المطابخ العربية'}
-
-يجب توليد ${input.profile.mealsPerDay} وجبات (${mealsToGenerate.join('، ')}).
-
-لكل وجبة، يجب أن تحتوي على:
-- السعرات: حوالي ${caloriesPerMeal} سعرة
-- البروتين: حوالي ${proteinPerMeal} جرام
-- الكربوهيدرات: حوالي ${carbsPerMeal} جرام
-- الدهون: حوالي ${fatPerMeal} جرام
-- الألياف: حوالي ${fiberPerMeal} جرام
-
-متطلبات مهمة:
-1. يجب أن تكون جميع الوجبات من الطعام العربي الأصيل
-2. يجب أن تكون الوصفات واقعية وقابلة للتطبيق
-3. يجب أن تكون المكونات متوفرة بسهولة
-4. يجب أن تكون التعليمات واضحة ومفصلة
-5. يجب احترام جميع القيود الغذائية والحساسية
-6. يجب تجنب الأطعمة غير المرغوبة
-7. يجب أن تكون الوجبات متنوعة ولذيذة
-8. يجب أن تكون القيم الغذائية دقيقة قدر الإمكان
-
-أرجع JSON فقط بهذا الشكل بالضبط (بدون أي نص إضافي):
-{
-  "meals": [
-    {
-      "name": "اسم الوجبة بالعربي",
-      "type": "breakfast أو lunch أو dinner أو snack",
-      "ingredients": ["مكون 1 مع الكمية", "مكون 2 مع الكمية"],
-      "instructions": ["خطوة 1", "خطوة 2"],
-      "nutrition": {
-        "calories": رقم,
-        "protein": رقم,
-        "carbs": رقم,
-        "fat": رقم,
-        "fiber": رقم
-      },
-      "prepTime": رقم بالدقائق,
-      "servings": عدد الحصص
-    }
-  ]
-}`;
-
     try {
-      console.log('إرسال الطلب إلى Hugging Face API...');
+      console.log('توليد خطة الوجبات محلياً...');
       
-      const HF_API_KEY = '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';
-      const HF_MODEL = 'mistralai/Mixtral-8x7B-Instruct-v0.1';
-      
-      const hfResponse = await fetch(
-        `https://api-inference.huggingface.co/models/${HF_MODEL}`,
-        {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${HF_API_KEY}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            inputs: prompt,
-            parameters: {
-              max_new_tokens: 2000,
-              temperature: 0.7,
-              top_p: 0.95,
-              return_full_text: false,
-            },
-          }),
-        }
-      );
+      const mealNames: Record<string, string[]> = {
+        breakfast: [
+          'فول مدمس مع البيض والخبز البلدي',
+          'شكشوكة بالطماطم والفلفل',
+          'لبنة مع زيت الزيتون والزعتر',
+          'عجة بالخضار والجبن',
+          'فتة حمص بالزبادي',
+        ],
+        lunch: [
+          'دجاج مشوي مع الأرز البني والسلطة',
+          'سمك مشوي مع البطاطس المسلوقة',
+          'كفتة مشوية مع الخضار المشوية',
+          'مجدرة بالأرز والعدس',
+          'كبسة دجاج بالخضار',
+        ],
+        dinner: [
+          'شوربة عدس مع الخبز المحمص',
+          'سلطة تونة مع الخضار الطازجة',
+          'صدر دجاج مشوي مع السلطة',
+          'شوربة خضار بالدجاج',
+          'بيض مسلوق مع الخضار',
+        ],
+        snack: [
+          'زبادي يوناني مع المكسرات والعسل',
+          'تفاح مع زبدة الفول السوداني',
+          'حمص بالطحينة مع الخضار',
+          'جبن قريش مع الخيار والطماطم',
+          'موز مع حفنة من اللوز',
+        ],
+      };
 
-      if (!hfResponse.ok) {
-        const errorText = await hfResponse.text();
-        console.error('Hugging Face API Error:', errorText);
-        throw new Error(`Hugging Face API error: ${hfResponse.status}`);
-      }
+      const mealIngredients: Record<string, string[][]> = {
+        breakfast: [
+          ['200 جرام فول مدمس', '2 بيضة مسلوقة', '1 رغيف خبز بلدي', '1 ملعقة كبيرة زيت زيتون', 'كمون وليمون'],
+          ['3 بيضات', '2 حبة طماطم', '1 فلفل أخضر', '1 بصلة صغيرة', 'ملعقة زيت زيتون', 'بهارات'],
+          ['150 جرام لبنة', '2 ملعقة كبيرة زيت زيتون', 'زعتر', '1 رغيف خبز', 'خيار وطماطم'],
+          ['3 بيضات', '50 جرام جبن', 'خضار مشكلة', 'ملعقة زيت', 'بهارات'],
+          ['150 جرام حمص مسلوق', '100 جرام زبادي', 'خبز محمص', 'طحينة', 'ثوم وليمون'],
+        ],
+        lunch: [
+          ['200 جرام صدر دجاج', '150 جرام أرز بني', 'سلطة خضراء', 'ملعقة زيت زيتون', 'بهارات'],
+          ['200 جرام سمك', '200 جرام بطاطس', 'خضار مشوية', 'ليمون', 'بهارات'],
+          ['200 جرام لحم مفروم', 'بصل وبقدونس', 'خضار مشوية', 'بهارات'],
+          ['150 جرام أرز', '100 جرام عدس', 'بصل مقلي', 'زيت زيتون'],
+          ['200 جرام دجاج', '150 جرام أرز', 'خضار مشكلة', 'بهارات كبسة'],
+        ],
+        dinner: [
+          ['150 جرام عدس', 'خضار مشكلة', 'خبز محمص', 'كمون وليمون'],
+          ['علبة تونة', 'خس وطماطم وخيار', 'زيت زيتون وليمون', 'ذرة'],
+          ['150 جرام صدر دجاج', 'سلطة خضراء كبيرة', 'زيت زيتون'],
+          ['100 جرام دجاج', 'خضار مشكلة', 'مرق دجاج', 'بهارات'],
+          ['2 بيضة مسلوقة', 'خيار وطماطم', 'خس', 'زيت زيتون'],
+        ],
+        snack: [
+          ['150 جرام زبادي يوناني', '30 جرام مكسرات', 'ملعقة عسل'],
+          ['1 تفاحة متوسطة', '2 ملعقة كبيرة زبدة فول سوداني'],
+          ['100 جرام حمص', '2 ملعقة طحينة', 'خيار وجزر'],
+          ['100 جرام جبن قريش', 'خيار وطماطم', 'زيت زيتون'],
+          ['1 موزة', '30 جرام لوز'],
+        ],
+      };
 
-      const hfData = await hfResponse.json();
-      console.log('استجابة Hugging Face:', hfData);
-      
-      let response = '';
-      if (Array.isArray(hfData) && hfData[0]?.generated_text) {
-        response = hfData[0].generated_text;
-      } else if (typeof hfData === 'string') {
-        response = hfData;
-      } else {
-        throw new Error('Invalid response format from Hugging Face');
-      }
+      const mealInstructions: Record<string, string[][]> = {
+        breakfast: [
+          ['سخن الفول في قدر على نار هادئة', 'اسلق البيض لمدة 7 دقائق', 'سخن الخبز', 'قدم الفول مع البيض والخبز وزيت الزيتون'],
+          ['قطع الطماطم والفلفل والبصل', 'اقلي الخضار في الزيت', 'أضف البيض المخفوق', 'قلب حتى ينضج'],
+          ['ضع اللبنة في طبق', 'أضف زيت الزيتون والزعتر', 'قدمها مع الخبز والخضار'],
+          ['اخفق البيض مع الجبن', 'أضف الخضار المقطعة', 'اقلي في مقلاة حتى تنضج'],
+          ['اهرس الحمص قليلاً', 'أضف الزبادي والطحينة', 'قدمه مع الخبز المحمص'],
+        ],
+        lunch: [
+          ['تبل الدجاج بالبهارات', 'اشوي الدجاج في الفرن', 'اسلق الأرز', 'حضر السلطة', 'قدم الوجبة'],
+          ['تبل السمك بالليمون والبهارات', 'اشوي السمك', 'اسلق البطاطس', 'اشوي الخضار'],
+          ['اخلط اللحم مع البصل والبقدونس', 'شكل الكفتة', 'اشويها', 'قدمها مع الخضار'],
+          ['اسلق العدس والأرز معاً', 'اقلي البصل حتى يحمر', 'قدم المجدرة مع البصل المقلي'],
+          ['تبل الدجاج ببهارات الكبسة', 'اطبخ الأرز مع الدجاج والخضار', 'قدم ساخناً'],
+        ],
+        dinner: [
+          ['اسلق العدس مع الخضار', 'اخلطهم حتى يصبح شوربة', 'قدمها مع الخبز المحمص'],
+          ['صفي التونة', 'قطع الخضار', 'اخلط كل المكونات', 'أضف الزيت والليمون'],
+          ['تبل الدجاج', 'اشويه حتى ينضج', 'حضر السلطة', 'قدمهم معاً'],
+          ['اسلق الدجاج مع الخضار', 'أضف المرق والبهارات', 'اطبخ حتى تنضج'],
+          ['اسلق البيض', 'قطع الخضار', 'قدمهم مع زيت الزيتون'],
+        ],
+        snack: [
+          ['ضع الزبادي في وعاء', 'أضف المكسرات والعسل', 'قدمه بارداً'],
+          ['قطع التفاح', 'ادهنه بزبدة الفول السوداني'],
+          ['ضع الحمص في طبق', 'أضف الطحينة', 'قدمه مع الخضار'],
+          ['ضع الجبن في طبق', 'أضف الخضار المقطعة', 'رش زيت الزيتون'],
+          ['قشر الموز', 'قدمه مع اللوز'],
+        ],
+      };
 
-      let jsonText = response.trim();
-      if (jsonText.startsWith('```json')) {
-        jsonText = jsonText.replace(/```json\n?/g, '').replace(/```\n?/g, '');
-      } else if (jsonText.startsWith('```')) {
-        jsonText = jsonText.replace(/```\n?/g, '');
-      }
-      
-      const jsonMatch = jsonText.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        jsonText = jsonMatch[0];
-      }
+      const meals = mealsToGenerate.map((type, index) => {
+        const mealIndex = Math.floor(Math.random() * mealNames[type].length);
+        
+        let nutrition = {
+          calories: caloriesPerMeal,
+          protein: proteinPerMeal,
+          carbs: carbsPerMeal,
+          fat: fatPerMeal,
+          fiber: fiberPerMeal,
+        };
 
-      const parsed = JSON.parse(jsonText);
-      
-      if (!parsed.meals || !Array.isArray(parsed.meals)) {
-        throw new Error('Invalid response format from AI');
-      }
+        const variance = 0.1;
+        nutrition = {
+          calories: Math.round(nutrition.calories * (1 + (Math.random() * variance * 2 - variance))),
+          protein: Math.round(nutrition.protein * (1 + (Math.random() * variance * 2 - variance))),
+          carbs: Math.round(nutrition.carbs * (1 + (Math.random() * variance * 2 - variance))),
+          fat: Math.round(nutrition.fat * (1 + (Math.random() * variance * 2 - variance))),
+          fiber: Math.round(nutrition.fiber * (1 + (Math.random() * variance * 2 - variance))),
+        };
 
-      const meals = parsed.meals.map((meal: any, index: number) => ({
-        id: `meal-${Date.now()}-${index}`,
-        name: meal.name,
-        type: meal.type,
-        ingredients: meal.ingredients,
-        instructions: meal.instructions,
-        nutrition: meal.nutrition,
-        prepTime: meal.prepTime,
-        servings: meal.servings,
-      }));
+        return {
+          id: `meal-${Date.now()}-${index}`,
+          name: mealNames[type][mealIndex],
+          type,
+          ingredients: mealIngredients[type][mealIndex],
+          instructions: mealInstructions[type][mealIndex],
+          nutrition,
+          prepTime: type === 'snack' ? 5 : type === 'breakfast' ? 15 : 30,
+          servings: 1,
+        };
+      });
 
       const totalNutrition = meals.reduce(
         (acc: { calories: number; protein: number; carbs: number; fat: number; fiber: number }, meal: any) => ({
