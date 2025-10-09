@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { publicProcedure } from '../../create-context';
+import { publicProcedure } from '../../../create-context';
 import { generateObject } from '@rork/toolkit-sdk';
 
 const MealSchema = z.object({
@@ -56,7 +56,7 @@ export const regenerateMealProcedure = publicProcedure
   .mutation(async ({ input }) => {
     const { meal, profile, category } = input;
 
-    const mealTypeArabic = {
+    const mealTypeArabic: Record<'breakfast' | 'lunch' | 'dinner' | 'snack', string> = {
       breakfast: 'إفطار',
       lunch: 'غداء',
       dinner: 'عشاء',
@@ -89,7 +89,7 @@ export const regenerateMealProcedure = publicProcedure
 - إذا كانت الفئة "حبوب كاملة": استخدم الشوفان، الكينوا، الأرز البني، الخبز الأسمر` : '';
 
     const prompt = `
-أنشئ وجبة ${mealTypeArabic[meal.type]} عربية جديدة بسرعة.
+أنشئ وجبة ${mealTypeArabic[meal.type as keyof typeof mealTypeArabic]} عربية جديدة بسرعة.
 
 السابقة: ${meal.name}${categoryInfo}
 
@@ -122,7 +122,7 @@ export const regenerateMealProcedure = publicProcedure
     return {
       id: `${meal.type}-${Date.now()}`,
       type: meal.type,
-      name: result.name || mealTypeArabic[meal.type],
+      name: result.name || mealTypeArabic[meal.type as keyof typeof mealTypeArabic],
       ingredients: Array.isArray(result.ingredients) ? result.ingredients : [],
       instructions: Array.isArray(result.instructions) ? result.instructions : [],
       nutrition: result.nutrition || { calories: 0, protein: 0, carbs: 0, fat: 0, fiber: 0 },
