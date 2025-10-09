@@ -56,7 +56,8 @@ export const trpcReactClient = trpc.createClient({
           console.log('tRPC React Response headers:', Object.fromEntries(response.headers.entries()));
           
           if (!response.ok) {
-            const text = await response.text();
+            const clonedResponse = response.clone();
+            const text = await clonedResponse.text();
             console.error('tRPC Error Response body:', text);
           }
           
@@ -107,7 +108,8 @@ export const trpcClient = createTRPCClient<AppRouter>({
           console.log('tRPC Vanilla Response headers:', Object.fromEntries(response.headers.entries()));
           
           if (!response.ok) {
-            const text = await response.text();
+            const clonedResponse = response.clone();
+            const text = await clonedResponse.text();
             console.error('tRPC Error Response body:', text);
           }
           
