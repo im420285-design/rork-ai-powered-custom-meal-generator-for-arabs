@@ -2,15 +2,6 @@ import { UserProfile, NutritionTargets, Meal, DailyMealPlan } from '@/types/nutr
 import { generateObject } from '@rork/toolkit-sdk';
 import { z } from 'zod';
 
-function clampNumber(n: number, min: number, max: number): number {
-  if (Number.isNaN(n)) return min;
-  return Math.max(min, Math.min(max, n));
-}
-
-function round(n: number): number {
-  return Math.round(n);
-}
-
 function normalizeTargets(t: NutritionTargets): NutritionTargets {
   const proteinCals = t.protein * 4;
   const carbsCals = t.carbs * 4;
@@ -18,35 +9,16 @@ function normalizeTargets(t: NutritionTargets): NutritionTargets {
   const macroCals = proteinCals + carbsCals + fatCals;
   if (macroCals === 0) return t;
   const scale = t.calories / macroCals;
-  const protein = round(t.protein * scale);
-  const carbs = round(t.carbs * scale);
-  const fat = round(t.fat * scale);
-  return { calories: round(t.calories), protein, carbs, fat, fiber: round(t.fiber) };
-}
-
-function defaultDistribution(mealsPerDay: number): number[] {
-  const n = clampNumber(mealsPerDay, 1, 6);
-  if (n === 1) return [1];
-  if (n === 2) return [0.45, 0.55];
-  if (n === 3) return [0.3, 0.4, 0.3];
-  if (n === 4) return [0.25, 0.35, 0.25, 0.15];
-  if (n === 5) return [0.22, 0.34, 0.24, 0.1, 0.1];
-  return [0.2, 0.3, 0.25, 0.15, 0.05, 0.05];
-}
-
-function repartitionMacros(perc: number, t: NutritionTargets) {
-  const calories = round(t.calories * perc);
-  const protein = round(t.protein * perc);
-  const carbs = round(t.carbs * perc);
-  const fat = round(t.fat * perc);
-  const fiber = round(t.fiber * perc);
-  return { calories, protein, carbs, fat, fiber } as const;
-}
-
-function reconcileCaloriesFromMacros(n: { protein: number; carbs: number; fat: number; calories: number; fiber: number }) {
-  const calcCals = n.protein * 4 + n.carbs * 4 + n.fat * 9;
-  // Prefer macro-driven calories for internal consistency
-  return { ...n, calories: round(calcCals) };
+  const protein = Math.round(t.protein * scale);
+  const carbs = Math.round(t.carbs * scale);
+  const fat = Math.round(t.fat * scale);
+  return { 
+    calories: Math.round(t.calories), 
+    protein, 
+    carbs, 
+    fat, 
+    fiber: Math.round(t.fiber) 
+  };
 }
 
 export async function generateDailyMealPlan(
@@ -86,17 +58,28 @@ export async function generateDailyMealPlan(
 - الدهون: ${normalizedTargets.fat} جرام
 - الألياف: ${normalizedTargets.fiber} جرام
 
-تعليمات مهمة:
+تعليمات مهمة جداً:
 1. أنشئ وجبات عربية أصيلة ومتنوعة من المطابخ المختلفة
-2. تأكد من أن إجمالي القيم الغذائية للوجبات يطابق الأهداف اليومية بدقة
-3. قسم السعرات والماكروز بالتساوي بين الوجبات
-4. تجنب الأطعمة المحظورة والحساسية
-5. راعي الحالات الصحية (مثل السكري، ضغط الدم، إلخ)
-6. استخدم وصفات بسيطة وسهلة التحضير
-7. أضف أوقات التحضير الواقعية
-8. ضمن تنوع الوجبات والمكونات
-9. تأكد من دقة حساب السعرات والماكروز لكل وجبة
-10. اجعل الوجبات متوازنة ومغذية
+2. **مهم جداً**: احسب القيم الغذائية لكل وجبة بدقة شديدة بناءً على المكونات الفعلية
+3. **مهم جداً**: تأكد أن مجموع السعرات من الماكروز يساوي السعرات المحددة:
+   - البروتين: 1 جرام = 4 سعرات
+   - الكربوهيدرات: 1 جرام = 4 سعرات
+   - الدهون: 1 جرام = 9 سعرات
+4. وزع السعرات والماكروز بين الوجبات بهذه النسب:
+   - الفطور: 30% من الإجمالي
+   - الغداء: 40% من الإجمالي
+   - العشاء: 25% من الإجمالي
+   - السناك: 5% من الإجمالي (إن وجد)
+5. تجنب الأطعمة المحظورة والحساسية
+6. راعي الحالات الصحية (مثل السكري، ضغط الدم، إلخ)
+7. استخدم وصفات بسيطة وسهلة التحضير
+8. أضف أوقات التحضير الواقعية
+9. ضمن تنوع الوجبات والمكونات
+10. **مهم**: اجعل القيم الغذائية واقعية ومتوافقة مع المكونات
+
+مثال على حساب الماكروز:
+- إذا كانت وجبة تحتوي على 30جم بروتين، 40جم كربوهيدرات، 15جم دهون
+- السعرات = (30×4) + (40×4) + (15×9) = 120 + 160 + 135 = 415 سعرة
 
 أنشئ خطة وجبات يومية كاملة مع تفاصيل كل وجبة.
 `;
@@ -143,32 +126,38 @@ export async function generateDailyMealPlan(
 
     console.log('تم توليد خطة الوجبات بنجاح:', result);
 
-    const distribution = defaultDistribution(profile.mealsPerDay ?? result.meals.length);
     const orderedMeals = [...result.meals].sort((a, b) => {
       const order: Record<Meal['type'], number> = { breakfast: 0, lunch: 1, dinner: 2, snack: 3 };
       return (order[a.type] ?? 9) - (order[b.type] ?? 9);
     });
 
-    const adjustedMeals = orderedMeals.map((meal, idx) => {
-      const perc = distribution[idx] ?? (1 / Math.max(distribution.length, 1));
-      const perMeal = repartitionMacros(perc, normalizedTargets);
-      const reconciled = reconcileCaloriesFromMacros(perMeal);
+    const validatedMeals = orderedMeals.map((meal) => {
+      const nutrition = meal.nutrition || { calories: 0, protein: 0, carbs: 0, fat: 0, fiber: 0 };
+      const calculatedCals = nutrition.protein * 4 + nutrition.carbs * 4 + nutrition.fat * 9;
+      const diff = Math.abs(calculatedCals - nutrition.calories);
+      
+      if (diff > 50) {
+        console.warn(`تحذير: وجبة ${meal.name} - السعرات المحسوبة (${Math.round(calculatedCals)}) لا تتطابق مع السعرات المحددة (${nutrition.calories})`);
+        return {
+          ...meal,
+          servings: meal.servings ?? 1,
+          prepTime: meal.prepTime ?? 15,
+          nutrition: {
+            ...nutrition,
+            calories: Math.round(calculatedCals),
+          },
+        } as Meal;
+      }
+      
       return {
         ...meal,
         servings: meal.servings ?? 1,
         prepTime: meal.prepTime ?? 15,
-        nutrition: {
-          calories: reconciled.calories,
-          protein: reconciled.protein,
-          carbs: reconciled.carbs,
-          fat: reconciled.fat,
-          fiber: reconciled.fiber,
-        },
+        nutrition,
       } as Meal;
     });
 
-    // Balance rounding differences to hit totals exactly
-    const sum = adjustedMeals.reduce(
+    const sum = validatedMeals.reduce(
       (acc, m) => ({
         calories: acc.calories + (m.nutrition?.calories ?? 0),
         protein: acc.protein + (m.nutrition?.protein ?? 0),
@@ -179,6 +168,9 @@ export async function generateDailyMealPlan(
       { calories: 0, protein: 0, carbs: 0, fat: 0, fiber: 0 }
     );
 
+    console.log('مجموع القيم الغذائية من الوجبات:', sum);
+    console.log('الأهداف المطلوبة:', normalizedTargets);
+
     const deltas = {
       calories: normalizedTargets.calories - sum.calories,
       protein: normalizedTargets.protein - sum.protein,
@@ -187,8 +179,11 @@ export async function generateDailyMealPlan(
       fiber: normalizedTargets.fiber - sum.fiber,
     } as const;
 
+    console.log('الفروقات التي سيتم تعديلها:', deltas);
+
+    const adjustedMeals = [...validatedMeals];
     const lastIdx = adjustedMeals.length - 1;
-    if (lastIdx >= 0) {
+    if (lastIdx >= 0 && (Math.abs(deltas.calories) > 5 || Math.abs(deltas.protein) > 2 || Math.abs(deltas.carbs) > 2 || Math.abs(deltas.fat) > 1)) {
       const last = adjustedMeals[lastIdx];
       adjustedMeals[lastIdx] = {
         ...last,
@@ -200,6 +195,7 @@ export async function generateDailyMealPlan(
           fiber: (last.nutrition?.fiber ?? 0) + deltas.fiber,
         },
       } as Meal;
+      console.log(`تم تعديل وجبة ${last.name} لتطابق الأهداف`);
     }
 
     const finalTotals = adjustedMeals.reduce(
