@@ -14,7 +14,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Sparkles, Edit2, X } from 'lucide-react-native';
 import { useNutritionStore } from '@/providers/nutrition-provider';
-import { generateDailyMealPlan } from '@/services/meal-generator';
+import { trpc } from '@/lib/trpc';
 import UserProfileForm from '@/components/UserProfileForm';
 import NutritionTargets from '@/components/NutritionTargets';
 import Colors from '@/constants/colors';
@@ -57,6 +57,8 @@ export default function HomeScreen() {
     }
   }, [nutritionTargets]);
 
+  const generateMealPlanMutation = trpc.meals.generatePlan.useMutation();
+
   const handleGenerateMealPlan = async () => {
     if (!userProfile || !nutritionTargets) {
       Alert.alert('تنبيه', 'يرجى إعداد الملف الشخصي أولاً');
@@ -66,10 +68,13 @@ export default function HomeScreen() {
     setIsGenerating(true);
     try {
       console.log('بدء توليد خطة الوجبات...');
-      const mealPlan = await generateDailyMealPlan(userProfile, nutritionTargets);
+      const mealPlan = await generateMealPlanMutation.mutateAsync({
+        profile: userProfile,
+        targets: nutritionTargets,
+      });
       console.log('تم توليد الخطة بنجاح');
       setCurrentMealPlan(mealPlan);
-      Alert.alert('نجاح', 'تم توليد خطة الوجبات بنجاح!');
+      Alert.alert('نجاح', 'تم توليد خطة الوجب��ت بنجاح!');
     } catch (error) {
       console.error('خطأ في توليد الوجبات:', error);
       const errorMessage = error instanceof Error ? error.message : 'حدث خطأ غير متوقع';
