@@ -5,7 +5,9 @@ import {
   TouchableOpacity,
   StyleSheet,
   Alert,
-  ActivityIndicator
+  ActivityIndicator,
+  Modal,
+  ScrollView
 } from 'react-native';
 import { 
   Clock, 
@@ -28,10 +30,20 @@ interface Props {
   onMealUpdated: (updatedMeal: Meal) => void;
 }
 
+const MEAL_CATEGORIES = [
+  { id: 'fish', label: 'أسماك', icon: '🐟' },
+  { id: 'meat', label: 'لحوم', icon: '🥩' },
+  { id: 'chicken', label: 'دجاج', icon: '🍗' },
+  { id: 'vegetarian', label: 'نباتي', icon: '🥗' },
+  { id: 'eggs_dairy', label: 'بيض ومنتجات ألبان', icon: '🥚' },
+  { id: 'whole_grains', label: 'حبوب كاملة', icon: '🌾' },
+];
+
 export default function MealCard({ meal, onMealUpdated }: Props) {
   const { userProfile, nutritionTargets } = useNutritionStore();
   const [isExpanded, setIsExpanded] = useState(false);
   const [isRegenerating, setIsRegenerating] = useState(false);
+  const [showCategoryModal, setShowCategoryModal] = useState(false);
 
   const mealTypeLabels = {
     breakfast: 'إفطار',
@@ -62,35 +74,31 @@ export default function MealCard({ meal, onMealUpdated }: Props) {
       return;
     }
 
-    console.log('عرض حوار التأكيد');
-    Alert.alert(
-      'تغيير الوجبة',
-      `هل تريد توليد وجبة ${mealTypeLabels[meal.type]} جديدة بديلة؟`,
-      [
-        { text: 'إلغاء', style: 'cancel' },
-        {
-          text: 'نعم',
-          onPress: async () => {
-            console.log('المستخدم وافق على تغيير الوجبة');
-            setIsRegenerating(true);
-            try {
-              console.log('بدء توليد وجبة جديدة:', meal.name);
-              const newMeal = await regenerateMeal(meal, nutritionTargets, userProfile);
-              console.log('تم توليد وجبة جديدة:', newMeal.name);
-              console.log('استدعاء onMealUpdated لتحديث الوجبة');
-              onMealUpdated(newMeal);
-              console.log('تم استدعاء onMealUpdated بنجاح');
-            } catch (error) {
-              console.error('خطأ في توليد الوجبة:', error);
-              Alert.alert('خطأ', error instanceof Error ? error.message : 'حدث خطأ غير متوقع');
-            } finally {
-              console.log('انتهاء عملية توليد الوجبة');
-              setIsRegenerating(false);
-            }
-          }
-        }
-      ]
-    );
+    setShowCategoryModal(true);
+  };
+
+  const handleCategorySelect = async (categoryId: string | null) => {
+    setShowCategoryModal(false);
+    
+    const categoryLabel = categoryId ? MEAL_CATEGORIES.find(c => c.id === categoryId)?.label : null;
+    
+    console.log('المستخدم اختار الفئة:', categoryLabel || 'عشوائي');
+    setIsRegenerating(true);
+    try {
+      console.log('بدء توليد وجبة جديدة:', meal.name);
+      if (!nutritionTargets || !userProfile) return;
+      const newMeal = await regenerateMeal(meal, nutritionTargets, userProfile, categoryLabel || undefined);
+      console.log('تم توليد وجبة جديدة:', newMeal.name);
+      console.log('استدعاء onMealUpdated لتحديث الوجبة');
+      onMealUpdated(newMeal);
+      console.log('تم استدعاء onMealUpdated بنجاح');
+    } catch (error) {
+      console.error('خطأ في توليد الوجبة:', error);
+      Alert.alert('خطأ', error instanceof Error ? error.message : 'حدث خطأ غير متوقع');
+    } finally {
+      console.log('انتهاء عملية توليد الوجبة');
+      setIsRegenerating(false);
+    }
   };
 
   return (
@@ -224,6 +232,50 @@ export default function MealCard({ meal, onMealUpdated }: Props) {
           </View>
         </View>
       )}
+
+      <Modal
+        visible={showCategoryModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowCategoryModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>اختر نوع الوجبة</Text>
+            <Text style={styles.modalSubtitle}>
+              اختر فئة معينة أو اضغط على &quot;عشوائي&quot; لتوليد وجبة متنوعة
+            </Text>
+            
+            <ScrollView style={styles.categoriesContainer} showsVerticalScrollIndicator={false}>
+              <TouchableOpacity
+                style={styles.categoryButton}
+                onPress={() => handleCategorySelect(null)}
+              >
+                <Text style={styles.categoryIcon}>🎲</Text>
+                <Text style={styles.categoryLabel}>عشوائي</Text>
+              </TouchableOpacity>
+
+              {MEAL_CATEGORIES.map((category) => (
+                <TouchableOpacity
+                  key={category.id}
+                  style={styles.categoryButton}
+                  onPress={() => handleCategorySelect(category.id)}
+                >
+                  <Text style={styles.categoryIcon}>{category.icon}</Text>
+                  <Text style={styles.categoryLabel}>{category.label}</Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+
+            <TouchableOpacity
+              style={styles.cancelButton}
+              onPress={() => setShowCategoryModal(false)}
+            >
+              <Text style={styles.cancelButtonText}>إلغاء</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -354,5 +406,69 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '500',
     color: Colors.light.text,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  modalContent: {
+    backgroundColor: Colors.light.background,
+    borderRadius: 20,
+    padding: 24,
+    width: '100%',
+    maxWidth: 400,
+    maxHeight: '80%',
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: Colors.light.text,
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  modalSubtitle: {
+    fontSize: 14,
+    color: Colors.light.gray[600],
+    textAlign: 'center',
+    marginBottom: 20,
+    lineHeight: 20,
+  },
+  categoriesContainer: {
+    maxHeight: 400,
+  },
+  categoryButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Colors.light.gray[50],
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: Colors.light.gray[200],
+  },
+  categoryIcon: {
+    fontSize: 32,
+    marginRight: 16,
+  },
+  categoryLabel: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: Colors.light.text,
+    flex: 1,
+  },
+  cancelButton: {
+    backgroundColor: Colors.light.gray[200],
+    borderRadius: 12,
+    padding: 16,
+    marginTop: 12,
+    alignItems: 'center',
+  },
+  cancelButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: Colors.light.gray[700],
   },
 });

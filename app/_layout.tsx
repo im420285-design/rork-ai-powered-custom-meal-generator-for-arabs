@@ -6,6 +6,7 @@ import { StyleSheet } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { StorageProvider } from '@/providers/storage';
 import { NutritionProvider } from '@/providers/nutrition-provider';
+import { AuthProvider } from '@/providers/auth-provider';
 import { trpc, trpcClient } from '@/lib/trpc';
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.
@@ -16,6 +17,7 @@ const queryClient = new QueryClient();
 function RootLayoutNav() {
   return (
     <Stack screenOptions={{ headerBackTitle: "Back" }}>
+      <Stack.Screen name="login" options={{ headerShown: false }} />
       <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
     </Stack>
   );
@@ -30,11 +32,13 @@ export default function RootLayout() {
     <trpc.Provider client={trpcClient} queryClient={queryClient}>
       <QueryClientProvider client={queryClient}>
         <StorageProvider>
-          <NutritionProvider>
-            <GestureHandlerRootView style={styles.container}>
-              <RootLayoutNav />
-            </GestureHandlerRootView>
-          </NutritionProvider>
+          <AuthProvider>
+            <NutritionProvider>
+              <GestureHandlerRootView style={styles.container}>
+                <RootLayoutNav />
+              </GestureHandlerRootView>
+            </NutritionProvider>
+          </AuthProvider>
         </StorageProvider>
       </QueryClientProvider>
     </trpc.Provider>

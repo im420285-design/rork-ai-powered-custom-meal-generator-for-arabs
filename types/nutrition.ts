@@ -1,3 +1,10 @@
+export interface UserAuth {
+  name: string;
+  email: string;
+  phoneNumber: string;
+  isLoggedIn: boolean;
+}
+
 export interface UserProfile {
   age: number;
   weight: number;
