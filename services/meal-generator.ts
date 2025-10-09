@@ -92,7 +92,12 @@ export async function generateDailyMealPlan(
     });
 
     console.log('تم توليد خطة الوجبات بنجاح:', result);
-    return result as DailyMealPlan;
+
+    // Validate and adjust macros to ensure they match targets exactly
+    const adjustedMealPlan = adjustMealPlanMacros(result, targets);
+    console.log('تم تعديل الماكروز لتطابق الأهداف:', adjustedMealPlan.totalNutrition);
+
+    return adjustedMealPlan;
   } catch (error) {
     console.error('خطأ في توليد خطة الوجبات:', error);
     if (error instanceof Error) {
@@ -100,6 +105,61 @@ export async function generateDailyMealPlan(
     }
     throw new Error('فشل في توليد خطة الوجبات. يرجى المحاولة مرة أخرى.');
   }
+}
+
+// Helper function to adjust meal macros to match targets exactly
+function adjustMealPlanMacros(mealPlan: DailyMealPlan, targets: NutritionTargets): DailyMealPlan {
+  const totalMeals = mealPlan.meals.length;
+  if (totalMeals === 0) return mealPlan;
+
+  // Calculate current totals from meals
+  const currentTotals = mealPlan.meals.reduce(
+    (acc, meal) => ({
+      calories: acc.calories + (meal.nutrition?.calories || 0),
+      protein: acc.protein + (meal.nutrition?.protein || 0),
+      carbs: acc.carbs + (meal.nutrition?.carbs || 0),
+      fat: acc.fat + (meal.nutrition?.fat || 0),
+      fiber: acc.fiber + (meal.nutrition?.fiber || 0),
+    }),
+    { calories: 0, protein: 0, carbs: 0, fat: 0, fiber: 0 }
+  );
+
+  // Calculate scaling factors
+  const calorieScale = targets.calories / Math.max(currentTotals.calories, 1);
+  const proteinScale = targets.protein / Math.max(currentTotals.protein, 1);
+  const carbsScale = targets.carbs / Math.max(currentTotals.carbs, 1);
+  const fatScale = targets.fat / Math.max(currentTotals.fat, 1);
+  const fiberScale = targets.fiber / Math.max(currentTotals.fiber, 1);
+
+  // Adjust each meal's nutrition
+  const adjustedMeals = mealPlan.meals.map(meal => ({
+    ...meal,
+    nutrition: {
+      calories: Math.round((meal.nutrition?.calories || 0) * calorieScale),
+      protein: Math.round((meal.nutrition?.protein || 0) * proteinScale),
+      carbs: Math.round((meal.nutrition?.carbs || 0) * carbsScale),
+      fat: Math.round((meal.nutrition?.fat || 0) * fatScale),
+      fiber: Math.round((meal.nutrition?.fiber || 0) * fiberScale),
+    },
+  }));
+
+  // Recalculate totals after adjustment
+  const adjustedTotals = adjustedMeals.reduce(
+    (acc, meal) => ({
+      calories: acc.calories + meal.nutrition.calories,
+      protein: acc.protein + meal.nutrition.protein,
+      carbs: acc.carbs + meal.nutrition.carbs,
+      fat: acc.fat + meal.nutrition.fat,
+      fiber: acc.fiber + meal.nutrition.fiber,
+    }),
+    { calories: 0, protein: 0, carbs: 0, fat: 0, fiber: 0 }
+  );
+
+  return {
+    ...mealPlan,
+    meals: adjustedMeals,
+    totalNutrition: adjustedTotals,
+  };
 }
 
 export async function regenerateMeal(
