@@ -3,96 +3,17 @@ import {
   View,
   Text,
   StyleSheet,
-  ScrollView,
-  TouchableOpacity,
-  Alert
+  ScrollView
 } from 'react-native';
 
-import { UtensilsCrossed, RefreshCw, Calendar } from 'lucide-react-native';
+import { UtensilsCrossed, Calendar } from 'lucide-react-native';
 import { useNutritionStore } from '@/providers/nutrition-provider';
-import { useAuth } from '@/providers/auth-provider';
-import { generateDailyMealPlan } from '@/services/meal-generator';
 import MealCard from '@/components/MealCard';
 import { Meal } from '@/types/nutrition';
 import Colors from '@/constants/colors';
 
 export default function MealsScreen() {
-  const { userAuth } = useAuth();
-  const { 
-    currentMealPlan, 
-    userProfile, 
-    nutritionTargets,
-    isGenerating,
-    setCurrentMealPlan,
-    setIsGenerating
-  } = useNutritionStore();
-
-  const handleMealUpdated = (updatedMeal: Meal) => {
-    console.log('تحديث الوجبة:', updatedMeal.name);
-    if (!currentMealPlan || !currentMealPlan.meals || !Array.isArray(currentMealPlan.meals) || currentMealPlan.meals.length === 0) {
-      console.log('لا توجد خطة وجبات حالية أو الوجبات غير صحيحة');
-      return;
-    }
-
-    const updatedMeals = currentMealPlan.meals.map((meal: Meal) => {
-      if (meal.id === updatedMeal.id) {
-        console.log('تم العثور على الوجبة وتحديثها:', meal.name, '->', updatedMeal.name);
-        return updatedMeal;
-      }
-      return meal;
-    });
-
-    const totalNutrition = updatedMeals.reduce((total: any, meal: Meal) => ({
-      calories: total.calories + (meal.nutrition?.calories || 0),
-      protein: total.protein + (meal.nutrition?.protein || 0),
-      carbs: total.carbs + (meal.nutrition?.carbs || 0),
-      fat: total.fat + (meal.nutrition?.fat || 0),
-      fiber: total.fiber + (meal.nutrition?.fiber || 0)
-    }), { calories: 0, protein: 0, carbs: 0, fat: 0, fiber: 0 });
-
-    console.log('إجمالي التغذية الجديد:', totalNutrition);
-    
-    const updatedMealPlan = {
-      ...currentMealPlan,
-      meals: updatedMeals,
-      totalNutrition
-    };
-    
-    console.log('تحديث خطة الوجبات بالوجبة الجديدة');
-    setCurrentMealPlan(updatedMealPlan);
-  };
-
-  const handleRegenerateAll = async () => {
-    if (!userProfile || !nutritionTargets) {
-      Alert.alert('خطأ', 'يرجى إعداد الملف الشخصي أولاً');
-      return;
-    }
-
-    Alert.alert(
-      'تغيير جميع الوجبات',
-      'هل تريد توليد خطة وجبات جديدة كاملة؟',
-      [
-        { text: 'إلغاء', style: 'cancel' },
-        {
-          text: 'نعم',
-          onPress: async () => {
-            setIsGenerating(true);
-            try {
-              console.log('بدء توليد خطة وجبات جديدة');
-              const newMealPlan = await generateDailyMealPlan(userProfile, nutritionTargets, userAuth || undefined);
-              console.log('تم توليد خطة وجبات جديدة:', newMealPlan);
-              setCurrentMealPlan(newMealPlan);
-            } catch (error) {
-              console.error('خطأ في توليد خطة الوجبات:', error);
-              Alert.alert('خطأ', error instanceof Error ? error.message : 'حدث خطأ غير متوقع');
-            } finally {
-              setIsGenerating(false);
-            }
-          }
-        }
-      ]
-    );
-  };
+  const { currentMealPlan } = useNutritionStore();
 
   if (!currentMealPlan || !currentMealPlan.meals || !Array.isArray(currentMealPlan.meals) || currentMealPlan.meals.length === 0) {
     return (
@@ -135,15 +56,6 @@ export default function MealsScreen() {
             </Text>
           </View>
         </View>
-        
-        <TouchableOpacity
-          style={styles.regenerateAllButton}
-          onPress={handleRegenerateAll}
-          disabled={isGenerating}
-        >
-          <RefreshCw size={20} color={Colors.light.primary} />
-          <Text style={styles.regenerateAllText}>تغيير الكل</Text>
-        </TouchableOpacity>
       </View>
 
       <View style={styles.nutritionSummary}>
@@ -173,7 +85,6 @@ export default function MealsScreen() {
           <MealCard
             key={meal.id}
             meal={meal}
-            onMealUpdated={handleMealUpdated}
           />
         ))}
         
@@ -181,7 +92,6 @@ export default function MealsScreen() {
           <MealCard
             key={meal.id}
             meal={meal}
-            onMealUpdated={handleMealUpdated}
           />
         ))}
         
@@ -189,7 +99,6 @@ export default function MealsScreen() {
           <MealCard
             key={meal.id}
             meal={meal}
-            onMealUpdated={handleMealUpdated}
           />
         ))}
         
@@ -197,7 +106,6 @@ export default function MealsScreen() {
           <MealCard
             key={meal.id}
             meal={meal}
-            onMealUpdated={handleMealUpdated}
           />
         ))}
 
@@ -247,20 +155,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: Colors.light.gray[500],
     marginTop: 2,
-  },
-  regenerateAllButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 8,
-    backgroundColor: Colors.light.gray[100],
-  },
-  regenerateAllText: {
-    fontSize: 12,
-    color: Colors.light.primary,
-    fontWeight: '500',
   },
   nutritionSummary: {
     backgroundColor: Colors.light.gray[50],
