@@ -10,12 +10,14 @@ import {
 
 import { UtensilsCrossed, RefreshCw, Calendar } from 'lucide-react-native';
 import { useNutritionStore } from '@/providers/nutrition-provider';
+import { useAuth } from '@/providers/auth-provider';
 import { generateDailyMealPlan } from '@/services/meal-generator';
 import MealCard from '@/components/MealCard';
 import { Meal } from '@/types/nutrition';
 import Colors from '@/constants/colors';
 
 export default function MealsScreen() {
+  const { userAuth } = useAuth();
   const { 
     currentMealPlan, 
     userProfile, 
@@ -77,7 +79,7 @@ export default function MealsScreen() {
             setIsGenerating(true);
             try {
               console.log('بدء توليد خطة وجبات جديدة');
-              const newMealPlan = await generateDailyMealPlan(userProfile, nutritionTargets);
+              const newMealPlan = await generateDailyMealPlan(userProfile, nutritionTargets, userAuth || undefined);
               console.log('تم توليد خطة وجبات جديدة:', newMealPlan);
               setCurrentMealPlan(newMealPlan);
             } catch (error) {

@@ -18,7 +18,7 @@ export interface UserProfile {
   healthConditions: string[];
   dislikedFoods: string[];
   preferredCuisines: string[];
-  dietType?: string;
+  dietType?: 'keto' | 'low_carb' | 'high_protein' | 'balanced' | 'intermittent_fasting' | 'mediterranean' | 'paleo' | 'vegan';
 }
 
 export interface NutritionTargets {

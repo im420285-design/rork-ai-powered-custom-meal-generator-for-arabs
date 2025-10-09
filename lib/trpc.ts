@@ -1,5 +1,5 @@
 import { createTRPCReact } from "@trpc/react-query";
-import { httpLink } from "@trpc/client";
+import { createTRPCClient, httpLink } from "@trpc/client";
 import type { AppRouter } from "@/backend/trpc/app-router";
 import superjson from "superjson";
 
@@ -15,11 +15,52 @@ const getBaseUrl = () => {
   );
 };
 
-export const trpcClient = trpc.createClient({
+export const trpcReactClient = trpc.createClient({
   links: [
     httpLink({
       url: `${getBaseUrl()}/api/trpc`,
       transformer: superjson,
+      fetch(url, options) {
+        console.log('tRPC Request:', url);
+        return fetch(url, {
+          ...options,
+          headers: {
+            ...options?.headers,
+          },
+        });
+      },
+    }),
+  ],
+});
+
+export const trpcClient = createTRPCClient<AppRouter>({
+  links: [
+    httpLink({
+      url: `${getBaseUrl()}/api/trpc`,
+      transformer: superjson,
+      async fetch(url, options) {
+        console.log('tRPC Vanilla Request:', url);
+        try {
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 120000);
+          
+          const response = await fetch(url, {
+            ...options,
+            signal: controller.signal,
+            headers: {
+              'Content-Type': 'application/json',
+              ...options?.headers,
+            },
+          });
+          
+          clearTimeout(timeoutId);
+          console.log('tRPC Response status:', response.status);
+          return response;
+        } catch (error) {
+          console.error('tRPC Fetch Error:', error);
+          throw error;
+        }
+      },
     }),
   ],
 });

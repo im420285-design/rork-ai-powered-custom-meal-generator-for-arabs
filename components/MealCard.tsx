@@ -22,6 +22,7 @@ import {
 } from 'lucide-react-native';
 import { Meal } from '@/types/nutrition';
 import { useNutritionStore } from '@/providers/nutrition-provider';
+import { useAuth } from '@/providers/auth-provider';
 import { regenerateMeal } from '@/services/meal-generator';
 import Colors from '@/constants/colors';
 
@@ -40,6 +41,7 @@ const MEAL_CATEGORIES = [
 ];
 
 export default function MealCard({ meal, onMealUpdated }: Props) {
+  const { userAuth } = useAuth();
   const { userProfile, nutritionTargets } = useNutritionStore();
   const [isExpanded, setIsExpanded] = useState(false);
   const [isRegenerating, setIsRegenerating] = useState(false);
@@ -87,7 +89,7 @@ export default function MealCard({ meal, onMealUpdated }: Props) {
     try {
       console.log('بدء توليد وجبة جديدة:', meal.name);
       if (!nutritionTargets || !userProfile) return;
-      const newMeal = await regenerateMeal(meal, nutritionTargets, userProfile, categoryLabel || undefined);
+      const newMeal = await regenerateMeal(meal, nutritionTargets, userProfile, categoryLabel || undefined, userAuth || undefined);
       console.log('تم توليد وجبة جديدة:', newMeal.name);
       console.log('استدعاء onMealUpdated لتحديث الوجبة');
       onMealUpdated(newMeal);

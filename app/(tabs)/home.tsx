@@ -14,6 +14,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Sparkles, Edit2, X } from 'lucide-react-native';
 import { useNutritionStore } from '@/providers/nutrition-provider';
+import { useAuth } from '@/providers/auth-provider';
 import { generateDailyMealPlan } from '@/services/meal-generator';
 import UserProfileForm from '@/components/UserProfileForm';
 import NutritionTargets from '@/components/NutritionTargets';
@@ -22,6 +23,7 @@ import { NutritionTargets as NutritionTargetsType } from '@/types/nutrition';
 
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
+  const { userAuth } = useAuth();
   const { 
     userProfile, 
     nutritionTargets, 
@@ -65,7 +67,7 @@ export default function HomeScreen() {
 
     setIsGenerating(true);
     try {
-      const mealPlan = await generateDailyMealPlan(userProfile, nutritionTargets);
+      const mealPlan = await generateDailyMealPlan(userProfile, nutritionTargets, userAuth || undefined);
       setCurrentMealPlan(mealPlan);
     } catch (error) {
       console.error('خطأ:', error instanceof Error ? error.message : 'حدث خطأ غير متوقع');
