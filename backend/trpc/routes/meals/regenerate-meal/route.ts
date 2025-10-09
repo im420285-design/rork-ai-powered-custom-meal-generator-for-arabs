@@ -88,36 +88,37 @@ export const regenerateMealProcedure = publicProcedure
 - إذا كانت الفئة "بيض ومنتجات ألبان": ركز على البيض، الجبن، الزبادي، الحليب
 - إذا كانت الفئة "حبوب كاملة": استخدم الشوفان، الكينوا، الأرز البني، الخبز الأسمر` : '';
 
-    const prompt = `
-أنشئ وجبة ${mealTypeArabic[meal.type as keyof typeof mealTypeArabic]} عربية جديدة بسرعة.
+    const prompt = `أنشئ وجبة ${mealTypeArabic[meal.type as keyof typeof mealTypeArabic]} عربية جديدة.
 
 السابقة: ${meal.name}${categoryInfo}
 
-القيم المطلوبة (±5%):
+قيم مطلوبة (±5%):
 - ${targetCalories} سعرة
 - ${targetProtein}جم بروتين
 - ${targetCarbs}جم كربوهيدرات
 - ${targetFat}جم دهون
 
-المستخدم:
-- ${profile.goal === 'lose' ? 'فقدان وزن' : profile.goal === 'gain' ? 'زيادة وزن' : 'حفاظ'}${dietTypeInfo}
-- قيود: ${(profile.dietaryRestrictions && profile.dietaryRestrictions.length > 0) ? profile.dietaryRestrictions.join(', ') : 'لا'}
-- حساسية: ${(profile.allergies && profile.allergies.length > 0) ? profile.allergies.join(', ') : 'لا'}
-- صحة: ${(profile.healthConditions && profile.healthConditions.length > 0) ? profile.healthConditions.join(', ') : 'لا'}
-- لا يحب: ${(profile.dislikedFoods && profile.dislikedFoods.length > 0) ? profile.dislikedFoods.join(', ') : 'لا'}
-- مطابخ: ${(profile.preferredCuisines && profile.preferredCuisines.length > 0) ? profile.preferredCuisines.join(', ') : 'عربي'}
+مستخدم: ${profile.goal === 'lose' ? 'فقدان وزن' : profile.goal === 'gain' ? 'زيادة وزن' : 'حفاظ'}${dietTypeInfo}
+قيود: ${(profile.dietaryRestrictions && profile.dietaryRestrictions.length > 0) ? profile.dietaryRestrictions.join(', ') : 'لا'}
+حساسية: ${(profile.allergies && profile.allergies.length > 0) ? profile.allergies.join(', ') : 'لا'}
 
-مهم:
-1. وجبة مختلفة تماماً
-2. مكونات عربية متوفرة
-3. قيم غذائية دقيقة (±5%)
-4. راعي القيود والحالات الصحية${category ? '\n5. التزم بفئة: ' + category : ''}
-`;
+مهم: وجبة مختلفة، مكونات عربية، قيم دقيقة${category ? '، فئة: ' + category : ''}`;
 
-    const result: any = await generateObject({
+    console.log('بدء توليد وجبة جديدة...');
+    console.log('Prompt length:', prompt.length);
+    
+    const timeoutPromise = new Promise((_, reject) => {
+      setTimeout(() => reject(new Error('Timeout: AI took too long')), 60000);
+    });
+    
+    const generatePromise = generateObject({
       messages: [{ role: 'user', content: prompt }],
       schema: MealSchema
     });
+    
+    const result: any = await Promise.race([generatePromise, timeoutPromise]);
+    
+    console.log('تم استلام الوجبة الجديدة من AI');
 
     return {
       id: `${meal.type}-${Date.now()}`,

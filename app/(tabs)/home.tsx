@@ -61,16 +61,21 @@ export default function HomeScreen() {
 
   const handleGenerateMealPlan = async () => {
     if (!userProfile || !nutritionTargets) {
-      console.log('خطأ: يرجى إعداد الملف الشخصي أولاً');
+      Alert.alert('تنبيه', 'يرجى إعداد الملف الشخصي أولاً');
       return;
     }
 
     setIsGenerating(true);
     try {
+      console.log('بدء توليد خطة الوجبات...');
       const mealPlan = await generateDailyMealPlan(userProfile, nutritionTargets, userAuth || undefined);
+      console.log('تم توليد الخطة بنجاح');
       setCurrentMealPlan(mealPlan);
+      Alert.alert('نجاح', 'تم توليد خطة الوجبات بنجاح!');
     } catch (error) {
-      console.error('خطأ:', error instanceof Error ? error.message : 'حدث خطأ غير متوقع');
+      console.error('خطأ في توليد الوجبات:', error);
+      const errorMessage = error instanceof Error ? error.message : 'حدث خطأ غير متوقع';
+      Alert.alert('خطأ', errorMessage);
     } finally {
       setIsGenerating(false);
     }
@@ -231,11 +236,12 @@ export default function HomeScreen() {
             style={[styles.generateButton, isGenerating && styles.generateButtonDisabled]}
             onPress={handleGenerateMealPlan}
             disabled={isGenerating}
+            activeOpacity={0.8}
           >
             {isGenerating ? (
               <View style={styles.loadingContainer}>
                 <ActivityIndicator size="small" color="white" />
-                <Text style={styles.generateButtonText}>جاري التوليد...</Text>
+                <Text style={styles.generateButtonText}>جاري التوليد... (قد يستغرق دقيقة)</Text>
               </View>
             ) : (
               <View style={styles.buttonContent}>

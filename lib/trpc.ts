@@ -27,14 +27,37 @@ export const trpcReactClient = trpc.createClient({
     httpLink({
       url: `${getBaseUrl()}/api/trpc`,
       transformer: superjson,
-      fetch(url, options) {
-        console.log('tRPC Request:', url);
-        return fetch(url, {
-          ...options,
-          headers: {
-            ...options?.headers,
-          },
-        });
+      async fetch(url, options) {
+        console.log('tRPC React Request:', url);
+        try {
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => {
+            console.log('Request timeout - aborting...');
+            controller.abort();
+          }, 120000);
+          
+          const response = await fetch(url, {
+            ...options,
+            signal: controller.signal,
+            headers: {
+              'Content-Type': 'application/json',
+              ...options?.headers,
+            },
+          });
+          
+          clearTimeout(timeoutId);
+          console.log('tRPC React Response status:', response.status);
+          
+          if (!response.ok) {
+            const text = await response.text();
+            console.error('tRPC Error Response:', text);
+          }
+          
+          return response;
+        } catch (error) {
+          console.error('tRPC React Fetch Error:', error);
+          throw error;
+        }
       },
     }),
   ],
@@ -49,7 +72,10 @@ export const trpcClient = createTRPCClient<AppRouter>({
         console.log('tRPC Vanilla Request:', url);
         try {
           const controller = new AbortController();
-          const timeoutId = setTimeout(() => controller.abort(), 120000);
+          const timeoutId = setTimeout(() => {
+            console.log('Request timeout - aborting...');
+            controller.abort();
+          }, 120000);
           
           const response = await fetch(url, {
             ...options,
@@ -61,10 +87,16 @@ export const trpcClient = createTRPCClient<AppRouter>({
           });
           
           clearTimeout(timeoutId);
-          console.log('tRPC Response status:', response.status);
+          console.log('tRPC Vanilla Response status:', response.status);
+          
+          if (!response.ok) {
+            const text = await response.text();
+            console.error('tRPC Error Response:', text);
+          }
+          
           return response;
         } catch (error) {
-          console.error('tRPC Fetch Error:', error);
+          console.error('tRPC Vanilla Fetch Error:', error);
           throw error;
         }
       },

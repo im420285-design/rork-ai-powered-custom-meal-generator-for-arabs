@@ -119,37 +119,35 @@ export const generatePlanProcedure = publicProcedure
     profile.dietType === 'paleo' ? 'باليو' :
     profile.dietType === 'vegan' ? 'نباتي' : 'متوازن'}` : '';
 
-    const prompt = `
-أنت خبير تغذية. أنشئ ${mealsPerDay} وجبات عربية بسرعة.
+    const prompt = `أنشئ ${mealsPerDay} وجبات عربية.
 
-المستخدم: ${profile.gender === 'male' ? 'ذكر' : 'أنثى'}, ${profile.age} سنة, ${profile.weight}كجم, ${profile.height}سم
-الهدف: ${profile.goal === 'lose' ? 'فقدان وزن' : profile.goal === 'gain' ? 'زيادة وزن' : 'حفاظ'}${dietTypeInfo}
+مستخدم: ${profile.gender === 'male' ? 'ذكر' : 'أنثى'}, ${profile.age}سنة, ${profile.weight}كجم
+هدف: ${profile.goal === 'lose' ? 'فقدان وزن' : profile.goal === 'gain' ? 'زيادة وزن' : 'حفاظ'}${dietTypeInfo}
 
-الأهداف اليومية (±5%):
-- ${targets.calories} سعرة
+أهداف يومية:
+- ${targets.calories} سعرة (±5%)
 - ${targets.protein}جم بروتين
-- ${targets.carbs}جم كربوهيدرات  
+- ${targets.carbs}جم كربوهيدرات
 - ${targets.fat}جم دهون
-- ${targets.fiber}جم ألياف
 
 ${dietaryInfo ? dietaryInfo : 'لا قيود'}
 ${mealDistribution}
 
-مهم:
-1. وجبات عربية بسيطة ومتوفرة
-2. احسب القيم الغذائية بدقة
-3. المجموع = الأهداف (±5%)
-4. ${mealsPerDay} وجبات فقط
-5. تجنب الأطعمة غير المرغوبة
-6. راعي نوع الدايت في الماكروز
-`;
+مهم: ${mealsPerDay} وجبات فقط، وجبات عربية بسيطة، قيم غذائية دقيقة`;
 
     console.log('بدء توليد خطة الوجبات...');
+    console.log('Prompt length:', prompt.length);
     
-    const result = await generateObject({
+    const timeoutPromise = new Promise((_, reject) => {
+      setTimeout(() => reject(new Error('Timeout: AI took too long')), 90000);
+    });
+    
+    const generatePromise = generateObject({
       messages: [{ role: 'user', content: prompt }],
       schema: DailyMealPlanSchema
     });
+    
+    const result = await Promise.race([generatePromise, timeoutPromise]) as any;
 
     console.log('تم استلام النتيجة من AI');
 

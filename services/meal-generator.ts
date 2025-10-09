@@ -12,8 +12,8 @@ export async function generateDailyMealPlan(
 
   try {
     console.log('بدء توليد خطة الوجبات عبر tRPC...');
-    console.log('Profile:', JSON.stringify(profile, null, 2));
-    console.log('Targets:', JSON.stringify(targets, null, 2));
+    console.log('Profile mealsPerDay:', profile.mealsPerDay);
+    console.log('Targets calories:', targets.calories);
     
     const fullProfile = {
       ...profile,
@@ -22,18 +22,30 @@ export async function generateDailyMealPlan(
       phone: userAuth?.phoneNumber
     };
     
+    console.log('إرسال الطلب إلى الخادم...');
+    const startTime = Date.now();
+    
     const mealPlan = await trpcClient.meals.generatePlan.mutate({
       profile: fullProfile,
       targets
     });
-
-    console.log('تم إعداد خطة الوجبات بنجاح');
+    
+    const duration = Date.now() - startTime;
+    console.log(`تم إعداد خطة الوجبات بنجاح في ${duration}ms`);
+    console.log('عدد الوجبات:', mealPlan.meals?.length);
+    
     return mealPlan as DailyMealPlan;
   } catch (error) {
     console.error('Error generating meal plan:', error);
     if (error instanceof Error) {
       console.error('Error message:', error.message);
-      console.error('Error stack:', error.stack);
+      console.error('Error name:', error.name);
+      if (error.message.includes('Timeout') || error.message.includes('timeout')) {
+        throw new Error('استغرق توليد الوجبات وقتاً طويلاً. يرجى المحاولة مرة أخرى.');
+      }
+      if (error.message.includes('fetch') || error.message.includes('network')) {
+        throw new Error('خطأ في الاتصال بالخادم. تأكد من اتصالك بالإنترنت.');
+      }
     }
     throw new Error('فشل في توليد خطة الوجبات. يرجى المحاولة مرة أخرى.');
   }
@@ -52,6 +64,7 @@ export async function regenerateMeal(
 
   try {
     console.log('بدء توليد وجبة جديدة عبر tRPC...');
+    console.log('Meal type:', meal.type, 'Category:', category);
     
     const fullProfile = {
       ...profile,
@@ -59,6 +72,8 @@ export async function regenerateMeal(
       email: userAuth?.email || 'user@example.com',
       phone: userAuth?.phoneNumber
     };
+    
+    const startTime = Date.now();
     
     const newMeal = await trpcClient.meals.regenerateMeal.mutate({
       meal: {
@@ -70,10 +85,21 @@ export async function regenerateMeal(
       profile: fullProfile,
       category
     });
+    
+    const duration = Date.now() - startTime;
+    console.log(`تم توليد الوجبة الجديدة في ${duration}ms`);
 
     return newMeal as Meal;
   } catch (error) {
     console.error('Error regenerating meal:', error);
+    if (error instanceof Error) {
+      if (error.message.includes('Timeout') || error.message.includes('timeout')) {
+        throw new Error('استغرق توليد الوجبة وقتاً طويلاً. يرجى المحاولة مرة أخرى.');
+      }
+      if (error.message.includes('fetch') || error.message.includes('network')) {
+        throw new Error('خطأ في الاتصال بالخادم. تأكد من اتصالك بالإنترنت.');
+      }
+    }
     throw new Error('فشل في توليد وجبة جديدة. يرجى المحاولة مرة أخرى.');
   }
 }
