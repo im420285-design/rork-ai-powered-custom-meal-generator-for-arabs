@@ -20,9 +20,8 @@ const getBaseUrl = () => {
     return baseUrl;
   }
 
-  throw new Error(
-    "No base url found, please set EXPO_PUBLIC_RORK_API_BASE_URL"
-  );
+  console.log('Using empty string as base URL (relative path)');
+  return '';
 };
 
 export const trpcReactClient = trpc.createClient({
