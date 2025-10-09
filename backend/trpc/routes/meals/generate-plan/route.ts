@@ -1,6 +1,5 @@
 import { publicProcedure } from "../../../create-context";
 import { z } from "zod";
-import { generateText } from "@rork/toolkit-sdk";
 
 const userProfileSchema = z.object({
   age: z.number(),
@@ -122,15 +121,59 @@ export const generatePlanProcedure = publicProcedure
 }`;
 
     try {
-      console.log('إرسال الطلب إلى AI...');
-      const response = await generateText({ messages: [{ role: 'user', content: prompt }] });
-      console.log('استجابة AI:', response);
+      console.log('إرسال الطلب إلى Hugging Face API...');
+      
+      const HF_API_KEY = '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';
+      const HF_MODEL = 'mistralai/Mixtral-8x7B-Instruct-v0.1';
+      
+      const hfResponse = await fetch(
+        `https://api-inference.huggingface.co/models/${HF_MODEL}`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${HF_API_KEY}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            inputs: prompt,
+            parameters: {
+              max_new_tokens: 2000,
+              temperature: 0.7,
+              top_p: 0.95,
+              return_full_text: false,
+            },
+          }),
+        }
+      );
+
+      if (!hfResponse.ok) {
+        const errorText = await hfResponse.text();
+        console.error('Hugging Face API Error:', errorText);
+        throw new Error(`Hugging Face API error: ${hfResponse.status}`);
+      }
+
+      const hfData = await hfResponse.json();
+      console.log('استجابة Hugging Face:', hfData);
+      
+      let response = '';
+      if (Array.isArray(hfData) && hfData[0]?.generated_text) {
+        response = hfData[0].generated_text;
+      } else if (typeof hfData === 'string') {
+        response = hfData;
+      } else {
+        throw new Error('Invalid response format from Hugging Face');
+      }
 
       let jsonText = response.trim();
       if (jsonText.startsWith('```json')) {
         jsonText = jsonText.replace(/```json\n?/g, '').replace(/```\n?/g, '');
       } else if (jsonText.startsWith('```')) {
         jsonText = jsonText.replace(/```\n?/g, '');
+      }
+      
+      const jsonMatch = jsonText.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        jsonText = jsonMatch[0];
       }
 
       const parsed = JSON.parse(jsonText);
