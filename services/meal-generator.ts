@@ -2,6 +2,53 @@ import { UserProfile, NutritionTargets, Meal, DailyMealPlan } from '@/types/nutr
 import { generateObject } from '@rork/toolkit-sdk';
 import { z } from 'zod';
 
+function clampNumber(n: number, min: number, max: number): number {
+  if (Number.isNaN(n)) return min;
+  return Math.max(min, Math.min(max, n));
+}
+
+function round(n: number): number {
+  return Math.round(n);
+}
+
+function normalizeTargets(t: NutritionTargets): NutritionTargets {
+  const proteinCals = t.protein * 4;
+  const carbsCals = t.carbs * 4;
+  const fatCals = t.fat * 9;
+  const macroCals = proteinCals + carbsCals + fatCals;
+  if (macroCals === 0) return t;
+  const scale = t.calories / macroCals;
+  const protein = round(t.protein * scale);
+  const carbs = round(t.carbs * scale);
+  const fat = round(t.fat * scale);
+  return { calories: round(t.calories), protein, carbs, fat, fiber: round(t.fiber) };
+}
+
+function defaultDistribution(mealsPerDay: number): number[] {
+  const n = clampNumber(mealsPerDay, 1, 6);
+  if (n === 1) return [1];
+  if (n === 2) return [0.45, 0.55];
+  if (n === 3) return [0.3, 0.4, 0.3];
+  if (n === 4) return [0.25, 0.35, 0.25, 0.15];
+  if (n === 5) return [0.22, 0.34, 0.24, 0.1, 0.1];
+  return [0.2, 0.3, 0.25, 0.15, 0.05, 0.05];
+}
+
+function repartitionMacros(perc: number, t: NutritionTargets) {
+  const calories = round(t.calories * perc);
+  const protein = round(t.protein * perc);
+  const carbs = round(t.carbs * perc);
+  const fat = round(t.fat * perc);
+  const fiber = round(t.fiber * perc);
+  return { calories, protein, carbs, fat, fiber } as const;
+}
+
+function reconcileCaloriesFromMacros(n: { protein: number; carbs: number; fat: number; calories: number; fiber: number }) {
+  const calcCals = n.protein * 4 + n.carbs * 4 + n.fat * 9;
+  // Prefer macro-driven calories for internal consistency
+  return { ...n, calories: round(calcCals) };
+}
+
 export async function generateDailyMealPlan(
   profile: UserProfile,
   targets: NutritionTargets
@@ -9,7 +56,10 @@ export async function generateDailyMealPlan(
   try {
     console.log('بدء توليد خطة الوجبات عبر الذكاء الاصطناعي...');
     console.log('الملف الشخصي:', profile);
-    console.log('الأهداف الغذائية:', targets);
+    console.log('الأهداف الغذائية (قبل التطبيع):', targets);
+
+    const normalizedTargets = normalizeTargets(targets);
+    console.log('الأهداف الغذائية (بعد التطبيع):', normalizedTargets);
 
     const prompt = `
 أنت خبير تغذية متخصص في إعداد خطط وجبات صحية ومتوازنة. يجب أن تولد خطة وجبات يومية مخصصة للمستخدم بناءً على معلوماته الشخصية وأهدافه الغذائية.
@@ -30,11 +80,11 @@ export async function generateDailyMealPlan(
 - نوع الدايت: ${profile.dietType || 'عادي متوازن'}
 
 الأهداف الغذائية اليومية:
-- السعرات الحرارية: ${targets.calories}
-- البروتين: ${targets.protein} جرام
-- الكربوهيدرات: ${targets.carbs} جرام
-- الدهون: ${targets.fat} جرام
-- الألياف: ${targets.fiber} جرام
+- السعرات الحرارية: ${normalizedTargets.calories}
+- البروتين: ${normalizedTargets.protein} جرام
+- الكربوهيدرات: ${normalizedTargets.carbs} جرام
+- الدهون: ${normalizedTargets.fat} جرام
+- الألياف: ${normalizedTargets.fiber} جرام
 
 تعليمات مهمة:
 1. أنشئ وجبات عربية أصيلة ومتنوعة من المطابخ المختلفة
@@ -93,9 +143,84 @@ export async function generateDailyMealPlan(
 
     console.log('تم توليد خطة الوجبات بنجاح:', result);
 
-    // Validate and adjust macros to ensure they match targets exactly
-    const adjustedMealPlan = adjustMealPlanMacros(result, targets);
-    console.log('تم تعديل الماكروز لتطابق الأهداف:', adjustedMealPlan.totalNutrition);
+    const distribution = defaultDistribution(profile.mealsPerDay ?? result.meals.length);
+    const orderedMeals = [...result.meals].sort((a, b) => {
+      const order: Record<Meal['type'], number> = { breakfast: 0, lunch: 1, dinner: 2, snack: 3 };
+      return (order[a.type] ?? 9) - (order[b.type] ?? 9);
+    });
+
+    const adjustedMeals = orderedMeals.map((meal, idx) => {
+      const perc = distribution[idx] ?? (1 / Math.max(distribution.length, 1));
+      const perMeal = repartitionMacros(perc, normalizedTargets);
+      const reconciled = reconcileCaloriesFromMacros(perMeal);
+      return {
+        ...meal,
+        servings: meal.servings ?? 1,
+        prepTime: meal.prepTime ?? 15,
+        nutrition: {
+          calories: reconciled.calories,
+          protein: reconciled.protein,
+          carbs: reconciled.carbs,
+          fat: reconciled.fat,
+          fiber: reconciled.fiber,
+        },
+      } as Meal;
+    });
+
+    // Balance rounding differences to hit totals exactly
+    const sum = adjustedMeals.reduce(
+      (acc, m) => ({
+        calories: acc.calories + (m.nutrition?.calories ?? 0),
+        protein: acc.protein + (m.nutrition?.protein ?? 0),
+        carbs: acc.carbs + (m.nutrition?.carbs ?? 0),
+        fat: acc.fat + (m.nutrition?.fat ?? 0),
+        fiber: acc.fiber + (m.nutrition?.fiber ?? 0),
+      }),
+      { calories: 0, protein: 0, carbs: 0, fat: 0, fiber: 0 }
+    );
+
+    const deltas = {
+      calories: normalizedTargets.calories - sum.calories,
+      protein: normalizedTargets.protein - sum.protein,
+      carbs: normalizedTargets.carbs - sum.carbs,
+      fat: normalizedTargets.fat - sum.fat,
+      fiber: normalizedTargets.fiber - sum.fiber,
+    } as const;
+
+    const lastIdx = adjustedMeals.length - 1;
+    if (lastIdx >= 0) {
+      const last = adjustedMeals[lastIdx];
+      adjustedMeals[lastIdx] = {
+        ...last,
+        nutrition: {
+          calories: (last.nutrition?.calories ?? 0) + deltas.calories,
+          protein: (last.nutrition?.protein ?? 0) + deltas.protein,
+          carbs: (last.nutrition?.carbs ?? 0) + deltas.carbs,
+          fat: (last.nutrition?.fat ?? 0) + deltas.fat,
+          fiber: (last.nutrition?.fiber ?? 0) + deltas.fiber,
+        },
+      } as Meal;
+    }
+
+    const finalTotals = adjustedMeals.reduce(
+      (acc, m) => ({
+        calories: acc.calories + (m.nutrition?.calories ?? 0),
+        protein: acc.protein + (m.nutrition?.protein ?? 0),
+        carbs: acc.carbs + (m.nutrition?.carbs ?? 0),
+        fat: acc.fat + (m.nutrition?.fat ?? 0),
+        fiber: acc.fiber + (m.nutrition?.fiber ?? 0),
+      }),
+      { calories: 0, protein: 0, carbs: 0, fat: 0, fiber: 0 }
+    );
+
+    const adjustedMealPlan: DailyMealPlan = {
+      id: result.id,
+      date: result.date,
+      meals: adjustedMeals,
+      totalNutrition: finalTotals,
+    };
+
+    console.log('تم ضبط الماكروز وتنسيقها بدقة:', adjustedMealPlan.totalNutrition);
 
     return adjustedMealPlan;
   } catch (error) {
@@ -105,61 +230,6 @@ export async function generateDailyMealPlan(
     }
     throw new Error('فشل في توليد خطة الوجبات. يرجى المحاولة مرة أخرى.');
   }
-}
-
-// Helper function to adjust meal macros to match targets exactly
-function adjustMealPlanMacros(mealPlan: DailyMealPlan, targets: NutritionTargets): DailyMealPlan {
-  const totalMeals = mealPlan.meals.length;
-  if (totalMeals === 0) return mealPlan;
-
-  // Calculate current totals from meals
-  const currentTotals = mealPlan.meals.reduce(
-    (acc, meal) => ({
-      calories: acc.calories + (meal.nutrition?.calories || 0),
-      protein: acc.protein + (meal.nutrition?.protein || 0),
-      carbs: acc.carbs + (meal.nutrition?.carbs || 0),
-      fat: acc.fat + (meal.nutrition?.fat || 0),
-      fiber: acc.fiber + (meal.nutrition?.fiber || 0),
-    }),
-    { calories: 0, protein: 0, carbs: 0, fat: 0, fiber: 0 }
-  );
-
-  // Calculate scaling factors
-  const calorieScale = targets.calories / Math.max(currentTotals.calories, 1);
-  const proteinScale = targets.protein / Math.max(currentTotals.protein, 1);
-  const carbsScale = targets.carbs / Math.max(currentTotals.carbs, 1);
-  const fatScale = targets.fat / Math.max(currentTotals.fat, 1);
-  const fiberScale = targets.fiber / Math.max(currentTotals.fiber, 1);
-
-  // Adjust each meal's nutrition
-  const adjustedMeals = mealPlan.meals.map(meal => ({
-    ...meal,
-    nutrition: {
-      calories: Math.round((meal.nutrition?.calories || 0) * calorieScale),
-      protein: Math.round((meal.nutrition?.protein || 0) * proteinScale),
-      carbs: Math.round((meal.nutrition?.carbs || 0) * carbsScale),
-      fat: Math.round((meal.nutrition?.fat || 0) * fatScale),
-      fiber: Math.round((meal.nutrition?.fiber || 0) * fiberScale),
-    },
-  }));
-
-  // Recalculate totals after adjustment
-  const adjustedTotals = adjustedMeals.reduce(
-    (acc, meal) => ({
-      calories: acc.calories + meal.nutrition.calories,
-      protein: acc.protein + meal.nutrition.protein,
-      carbs: acc.carbs + meal.nutrition.carbs,
-      fat: acc.fat + meal.nutrition.fat,
-      fiber: acc.fiber + meal.nutrition.fiber,
-    }),
-    { calories: 0, protein: 0, carbs: 0, fat: 0, fiber: 0 }
-  );
-
-  return {
-    ...mealPlan,
-    meals: adjustedMeals,
-    totalNutrition: adjustedTotals,
-  };
 }
 
 export async function regenerateMeal(
