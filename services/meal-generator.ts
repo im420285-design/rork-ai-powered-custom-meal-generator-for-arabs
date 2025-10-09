@@ -93,55 +93,43 @@ export async function generateDailyMealPlan(
     profile.dietType === 'vegan' ? 'نباتي' : 'متوازن'}` : '';
 
   const prompt = `
-أنت خبير تغذية متخصص في الطبخ العربي والشرق أوسطي. أريد منك إنشاء خطة وجبات يومية متكاملة ومتنوعة.
+أنت خبير تغذية. أنشئ ${mealsPerDay} وجبات عربية بسرعة.
 
-معلومات المستخدم:
-- العمر: ${profile.age} سنة
-- الوزن: ${profile.weight} كيلو
-- الطول: ${profile.height} سم
-- الجنس: ${profile.gender === 'male' ? 'ذكر' : 'أنثى'}
-- مستوى النشاط: ${profile.activityLevel}
-- الهدف: ${profile.goal === 'lose' ? 'فقدان الوزن' : profile.goal === 'gain' ? 'زيادة الوزن' : 'الحفاظ على الوزن'}
-- عدد الوجبات المطلوبة: ${mealsPerDay} وجبات${dietTypeInfo}
+المستخدم: ${profile.gender === 'male' ? 'ذكر' : 'أنثى'}, ${profile.age} سنة, ${profile.weight}كجم, ${profile.height}سم
+الهدف: ${profile.goal === 'lose' ? 'فقدان وزن' : profile.goal === 'gain' ? 'زيادة وزن' : 'حفاظ'}${dietTypeInfo}
 
-الأهداف الغذائية المطلوبة (يجب الالتزام بها بدقة):
-- السعرات الحرارية الإجمالية: ${targets.calories} سعرة (الخطأ المسموح: ±${Math.round(targets.calories * 0.05)} سعرة)
-- البروتين الإجمالي: ${targets.protein} جرام (الخطأ المسموح: ±${Math.round(targets.protein * 0.05)} جرام)
-- الكربوهيدرات الإجمالية: ${targets.carbs} جرام (الخطأ المسموح: ±${Math.round(targets.carbs * 0.05)} جرام)
-- الدهون الإجمالية: ${targets.fat} جرام (الخطأ المسموح: ±${Math.round(targets.fat * 0.05)} جرام)
-- الألياف الإجمالية: ${targets.fiber} جرام (الخطأ المسموح: ±${Math.round(targets.fiber * 0.05)} جرام)
+الأهداف اليومية (±5%):
+- ${targets.calories} سعرة
+- ${targets.protein}جم بروتين
+- ${targets.carbs}جم كربوهيدرات  
+- ${targets.fat}جم دهون
+- ${targets.fiber}جم ألياف
 
-${dietaryInfo}
+${dietaryInfo ? dietaryInfo : 'لا قيود'}
 ${mealDistribution}
 
-شروط مهمة جداً:
-1. استخدم مكونات متوفرة في المنطقة العربية
-2. اجعل الوجبات متنوعة ولذيذة
-3. احرص على التوازن الغذائي
-4. اكتب كل شيء باللغة العربية
-5. **احسب القيم الغذائية بدقة شديدة - يجب أن يكون مجموع القيم الغذائية لجميع الوجبات مطابقاً للأهداف المطلوبة بنسبة خطأ لا تتجاوز 5%**
-6. اجعل الوصفات عملية وسهلة التحضير
-7. راعي الحالات الصحية المذكورة:
-   - إذا كان لديه سكري: قلل السكريات والكربوهيدرات البسيطة، ركز على الكربوهيدرات المعقدة
-   - إذا كان لديه ضغط: قلل الملح والصوديوم، استخدم التوابل الطبيعية
-   - إذا كان لديه كوليسترول: قلل الدهون المشبعة، استخدم زيت الزيتون
-8. تجنب الأطعمة غير المرغوبة تماماً
-9. ركز على المطابخ المفضلة إن وجدت
-10. يجب أن يكون عدد الوجبات بالضبط ${mealsPerDay} وجبات
-11. **تحقق من أن مجموع السعرات والماكروز لجميع الوجبات يساوي الأهداف المطلوبة (±5%)**
-12. راعي نوع الدايت المختار في توزيع الماكروز
-
-مثال على الدقة المطلوبة:
-إذا كانت السعرات المطلوبة 2000، يجب أن يكون المجموع بين 1900-2100
-إذا كان البروتين المطلوب 150جم، يجب أن يكون المجموع بين 142-158جم
+مهم:
+1. وجبات عربية بسيطة ومتوفرة
+2. احسب القيم الغذائية بدقة
+3. المجموع = الأهداف (±5%)
+4. ${mealsPerDay} وجبات فقط
+5. تجنب الأطعمة غير المرغوبة
+6. راعي نوع الدايت في الماكروز
 `;
 
   try {
     console.log('بدء توليد خطة الوجبات...');
-    const result = await generateObject({
+    
+    const timeoutPromise = new Promise((_, reject) => {
+      setTimeout(() => reject(new Error('انتهت مهلة التوليد. يرجى المحاولة مرة أخرى.')), 60000);
+    });
+    
+    const generatePromise = generateObject({
       messages: [{ role: 'user', content: prompt }],
       schema: DailyMealPlanSchema
     });
+    
+    const result = await Promise.race([generatePromise, timeoutPromise]) as any;
 
     console.log('تم استلام النتيجة من AI:', result);
 
@@ -149,7 +137,7 @@ ${mealDistribution}
       throw new Error('النتيجة غير مكتملة من AI');
     }
 
-    const meals: Meal[] = result.meals.map((mealData, index) => {
+    const meals: Meal[] = result.meals.map((mealData: any, index: number) => {
       let mealType: 'breakfast' | 'lunch' | 'dinner' | 'snack' = 'snack';
       
       if (index === 0) {
@@ -259,11 +247,6 @@ export async function regenerateMeal(
   const targetCarbs = meal.nutrition?.carbs || 0;
   const targetFat = meal.nutrition?.fat || 0;
 
-  const maxCaloriesError = Math.round(targetCalories * 0.05);
-  const maxProteinError = Math.round(targetProtein * 0.05);
-  const maxCarbsError = Math.round(targetCarbs * 0.05);
-  const maxFatError = Math.round(targetFat * 0.05);
-
   const dietTypeInfo = profile.dietType ? `
 - نوع الدايت: ${profile.dietType === 'keto' ? 'كيتو (قليل جداً من الكربوهيدرات، عالي الدهون)' : 
     profile.dietType === 'low_carb' ? 'قليل الكربوهيدرات' :
@@ -285,45 +268,42 @@ export async function regenerateMeal(
 - إذا كانت الفئة "حبوب كاملة": استخدم الشوفان، الكينوا، الأرز البني، الخبز الأسمر` : '';
 
   const prompt = `
-أنت خبير تغذية متخصص في الطبخ العربي. أريد منك إنشاء وجبة ${mealTypeArabic[meal.type]} جديدة ومختلفة تماماً عن الوجبة السابقة.
+أنشئ وجبة ${mealTypeArabic[meal.type]} عربية جديدة بسرعة.
 
-الوجبة السابقة كانت: ${meal.name}${categoryInfo}
+السابقة: ${meal.name}${categoryInfo}
 
-المطلوب وجبة جديدة بنفس القيم الغذائية بدقة (نسبة خطأ لا تتجاوز 5%):
-- السعرات الحرارية: ${targetCalories} سعرة (الخطأ المسموح: ±${maxCaloriesError} سعرة)
-- البروتين: ${targetProtein} جرام (الخطأ المسموح: ±${maxProteinError} جرام)
-- الكربوهيدرات: ${targetCarbs} جرام (الخطأ المسموح: ±${maxCarbsError} جرام)
-- الدهون: ${targetFat} جرام (الخطأ المسموح: ±${maxFatError} جرام)
+القيم المطلوبة (±5%):
+- ${targetCalories} سعرة
+- ${targetProtein}جم بروتين
+- ${targetCarbs}جم كربوهيدرات
+- ${targetFat}جم دهون
 
-معلومات المستخدم:
-- الهدف: ${profile.goal === 'lose' ? 'فقدان الوزن' : profile.goal === 'gain' ? 'زيادة الوزن' : 'الحفاظ على الوزن'}${dietTypeInfo}
-- قيود غذائية: ${(profile.dietaryRestrictions && profile.dietaryRestrictions.length > 0) ? profile.dietaryRestrictions.join(', ') : 'لا توجد'}
-- حساسية: ${(profile.allergies && profile.allergies.length > 0) ? profile.allergies.join(', ') : 'لا توجد'}
-- حالات صحية: ${(profile.healthConditions && profile.healthConditions.length > 0) ? profile.healthConditions.join(', ') : 'لا توجد'}
-- أطعمة غير مرغوبة: ${(profile.dislikedFoods && profile.dislikedFoods.length > 0) ? profile.dislikedFoods.join(', ') : 'لا توجد'}
-- المطابخ المفضلة: ${(profile.preferredCuisines && profile.preferredCuisines.length > 0) ? profile.preferredCuisines.join(', ') : 'جميع المطابخ العربية'}
+المستخدم:
+- ${profile.goal === 'lose' ? 'فقدان وزن' : profile.goal === 'gain' ? 'زيادة وزن' : 'حفاظ'}${dietTypeInfo}
+- قيود: ${(profile.dietaryRestrictions && profile.dietaryRestrictions.length > 0) ? profile.dietaryRestrictions.join(', ') : 'لا'}
+- حساسية: ${(profile.allergies && profile.allergies.length > 0) ? profile.allergies.join(', ') : 'لا'}
+- صحة: ${(profile.healthConditions && profile.healthConditions.length > 0) ? profile.healthConditions.join(', ') : 'لا'}
+- لا يحب: ${(profile.dislikedFoods && profile.dislikedFoods.length > 0) ? profile.dislikedFoods.join(', ') : 'لا'}
+- مطابخ: ${(profile.preferredCuisines && profile.preferredCuisines.length > 0) ? profile.preferredCuisines.join(', ') : 'عربي'}
 
-شروط مهمة:
-1. استخدم مكونات عربية أصيلة ومتوفرة
-2. اجعل الوجبة مختلفة تماماً عن السابقة
-3. احرص على التوازن الغذائي
-4. اكتب باللغة العربية
-5. **احسب القيم الغذائية بدقة شديدة - يجب أن تكون القيم الغذائية مطابقة للمطلوب بنسبة خطأ لا تتجاوز 5%**
-6. اجعل الوصفة عملية وسهلة
-7. راعي الحالات الصحية:
-   - إذا كان لديه سكري: قلل السكريات والكربوهيدرات البسيطة
-   - إذا كان لديه ضغط: قلل الملح والصوديوم
-   - إذا كان لديه كوليسترول: قلل الدهون المشبعة
-8. تجنب الأطعمة غير المرغوبة تماماً
-9. ركز على المطابخ المفضلة
-10. راعي نوع الدايت المختار في اختيار المكونات${category ? '\n11. **يجب الالتزام بالفئة المحددة في اختيار المكونات الرئيسية**' : ''}
+مهم:
+1. وجبة مختلفة تماماً
+2. مكونات عربية متوفرة
+3. قيم غذائية دقيقة (±5%)
+4. راعي القيود والحالات الصحية${category ? '\n5. التزم بفئة: ' + category : ''}
 `;
 
   try {
-    const result = await generateObject({
+    const timeoutPromise = new Promise((_, reject) => {
+      setTimeout(() => reject(new Error('انتهت مهلة التوليد. يرجى المحاولة مرة أخرى.')), 30000);
+    });
+    
+    const generatePromise = generateObject({
       messages: [{ role: 'user', content: prompt }],
       schema: MealSchema
     });
+    
+    const result = await Promise.race([generatePromise, timeoutPromise]) as any;
 
     return {
       id: `${meal.type}-${Date.now()}`,
