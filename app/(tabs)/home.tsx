@@ -14,7 +14,6 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Sparkles, Edit2, X } from 'lucide-react-native';
 import { useNutritionStore } from '@/providers/nutrition-provider';
-import { useAuth } from '@/providers/auth-provider';
 import { generateDailyMealPlan } from '@/services/meal-generator';
 import UserProfileForm from '@/components/UserProfileForm';
 import NutritionTargets from '@/components/NutritionTargets';
@@ -23,7 +22,6 @@ import { NutritionTargets as NutritionTargetsType } from '@/types/nutrition';
 
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
-  const { userAuth } = useAuth();
   const { 
     userProfile, 
     nutritionTargets, 
@@ -68,7 +66,7 @@ export default function HomeScreen() {
     setIsGenerating(true);
     try {
       console.log('بدء توليد خطة الوجبات...');
-      const mealPlan = await generateDailyMealPlan(userProfile, nutritionTargets, userAuth || undefined);
+      const mealPlan = await generateDailyMealPlan(userProfile, nutritionTargets);
       console.log('تم توليد الخطة بنجاح');
       setCurrentMealPlan(mealPlan);
       Alert.alert('نجاح', 'تم توليد خطة الوجبات بنجاح!');
