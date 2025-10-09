@@ -1,6 +1,35 @@
 import { UserProfile, NutritionTargets, Meal, DailyMealPlan, UserAuth } from '@/types/nutrition';
 import { trpcClient } from '@/lib/trpc';
 
+async function testBackendConnection(): Promise<boolean> {
+  try {
+    const baseUrl = typeof window !== 'undefined' 
+      ? `${window.location.protocol}//${window.location.hostname}${window.location.port ? `:${window.location.port}` : ''}`
+      : process.env.EXPO_PUBLIC_RORK_API_BASE_URL || '';
+    
+    console.log('Testing backend connection to:', `${baseUrl}/api/health`);
+    
+    const response = await fetch(`${baseUrl}/api/health`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+    
+    if (!response.ok) {
+      console.error('Backend health check failed with status:', response.status);
+      return false;
+    }
+    
+    const data = await response.json();
+    console.log('Backend health check response:', data);
+    return data.status === 'ok';
+  } catch (error) {
+    console.error('Backend health check error:', error);
+    return false;
+  }
+}
+
 export async function generateDailyMealPlan(
   profile: UserProfile,
   targets: NutritionTargets,
@@ -14,6 +43,11 @@ export async function generateDailyMealPlan(
     console.log('بدء توليد خطة الوجبات عبر tRPC...');
     console.log('Profile mealsPerDay:', profile.mealsPerDay);
     console.log('Targets calories:', targets.calories);
+    
+    const isBackendHealthy = await testBackendConnection();
+    if (!isBackendHealthy) {
+      throw new Error('الخادم غير متاح حالياً. يرجى التحقق من الاتصال والمحاولة مرة أخرى.');
+    }
     
     const fullProfile = {
       ...profile,
