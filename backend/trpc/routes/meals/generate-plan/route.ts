@@ -1,27 +1,24 @@
-import { z } from 'zod';
-import { publicProcedure } from '../../../create-context';
-import { generateObject } from '@rork/toolkit-sdk';
+import { publicProcedure } from "../../../create-context";
+import { z } from "zod";
+import { generateText } from "@rork/toolkit-sdk";
 
-const UserProfileSchema = z.object({
-  name: z.string(),
-  email: z.string(),
-  phone: z.string().optional(),
+const userProfileSchema = z.object({
   age: z.number(),
-  gender: z.enum(['male', 'female']),
   weight: z.number(),
   height: z.number(),
+  gender: z.enum(['male', 'female']),
   activityLevel: z.enum(['sedentary', 'light', 'moderate', 'active', 'very_active']),
   goal: z.enum(['lose', 'maintain', 'gain']),
+  mealsPerDay: z.number(),
+  dietaryRestrictions: z.array(z.string()),
+  allergies: z.array(z.string()),
+  healthConditions: z.array(z.string()),
+  dislikedFoods: z.array(z.string()),
+  preferredCuisines: z.array(z.string()),
   dietType: z.enum(['keto', 'low_carb', 'high_protein', 'balanced', 'intermittent_fasting', 'mediterranean', 'paleo', 'vegan']).optional(),
-  mealsPerDay: z.number().optional(),
-  dietaryRestrictions: z.array(z.string()).optional(),
-  allergies: z.array(z.string()).optional(),
-  healthConditions: z.array(z.string()).optional(),
-  dislikedFoods: z.array(z.string()).optional(),
-  preferredCuisines: z.array(z.string()).optional(),
 });
 
-const NutritionTargetsSchema = z.object({
+const nutritionTargetsSchema = z.object({
   calories: z.number(),
   protein: z.number(),
   carbs: z.number(),
@@ -29,189 +26,152 @@ const NutritionTargetsSchema = z.object({
   fiber: z.number(),
 });
 
-const MealSchema = z.object({
-  name: z.string().describe('اسم الوجبة باللغة العربية'),
-  ingredients: z.array(z.string()).describe('قائمة المكونات مع الكميات باللغة العربية'),
-  instructions: z.array(z.string()).describe('خطوات التحضير باللغة العربية'),
-  nutrition: z.object({
-    calories: z.number().describe('السعرات الحرارية'),
-    protein: z.number().describe('البروتين بالجرام'),
-    carbs: z.number().describe('الكربوهيدرات بالجرام'),
-    fat: z.number().describe('الدهون بالجرام'),
-    fiber: z.number().describe('الألياف بالجرام')
-  }),
-  prepTime: z.number().describe('وقت التحضير بالدقائق'),
-  servings: z.number().describe('عدد الحصص')
-});
-
-const DailyMealPlanSchema = z.object({
-  meals: z.array(MealSchema).describe('قائمة الوجبات اليومية')
-});
-
 export const generatePlanProcedure = publicProcedure
   .input(z.object({
-    profile: UserProfileSchema,
-    targets: NutritionTargetsSchema,
+    profile: userProfileSchema,
+    targets: nutritionTargetsSchema,
   }))
   .mutation(async ({ input }) => {
-    const { profile, targets } = input;
-
-    const dietaryInfo = [
-      (profile.dietaryRestrictions && profile.dietaryRestrictions.length > 0) ? `قيود غذائية: ${profile.dietaryRestrictions.join(', ')}` : '',
-      (profile.allergies && profile.allergies.length > 0) ? `حساسية من: ${profile.allergies.join(', ')}` : '',
-      (profile.healthConditions && profile.healthConditions.length > 0) ? `حالات صحية: ${profile.healthConditions.join(', ')}` : '',
-      (profile.dislikedFoods && profile.dislikedFoods.length > 0) ? `أطعمة غير مرغوبة: ${profile.dislikedFoods.join(', ')}` : '',
-      (profile.preferredCuisines && profile.preferredCuisines.length > 0) ? `المطابخ المفضلة: ${profile.preferredCuisines.join(', ')}` : ''
-    ].filter(Boolean).join('\n');
-
-    const mealsPerDay = profile.mealsPerDay || 3;
-    let mealDistribution = '';
-    
-    if (mealsPerDay === 2) {
-      mealDistribution = `
-المطلوب:
-1. إفطار صحي ومشبع (40% من السعرات)
-2. غداء متوازن وغني (60% من السعرات)
-`;
-    } else if (mealsPerDay === 3) {
-      mealDistribution = `
-المطلوب:
-1. إفطار صحي ومشبع (30% من السعرات)
-2. غداء متوازن وغني (40% من السعرات)
-3. عشاء خفيف ومغذي (30% من السعرات)
-`;
-    } else if (mealsPerDay === 4) {
-      mealDistribution = `
-المطلوب:
-1. إفطار صحي ومشبع (25% من السعرات)
-2. غداء متوازن وغني (35% من السعرات)
-3. عشاء خفيف ومغذي (25% من السعرات)
-4. وجبة خفيفة صحية (15% من السعرات)
-`;
-    } else if (mealsPerDay === 5) {
-      mealDistribution = `
-المطلوب:
-1. إفطار صحي ومشبع (25% من السعرات)
-2. وجبة خفيفة صباحية (10% من السعرات)
-3. غداء متوازن وغني (30% من السعرات)
-4. وجبة خفيفة مسائية (10% من السعرات)
-5. عشاء خفيف ومغذي (25% من السعرات)
-`;
-    } else if (mealsPerDay === 6) {
-      mealDistribution = `
-المطلوب:
-1. إفطار صحي ومشبع (20% من السعرات)
-2. وجبة خفيفة صباحية (10% من السعرات)
-3. غداء متوازن وغني (25% من السعرات)
-4. وجبة خفيفة بعد الظهر (10% من السعرات)
-5. عشاء خفيف ومغذي (20% من السعرات)
-6. وجبة خفيفة مسائية (15% من السعرات)
-`;
-    }
-
-    const dietTypeInfo = profile.dietType ? `
-- نوع الدايت: ${profile.dietType === 'keto' ? 'كيتو (قليل جداً من الكربوهيدرات، عالي الدهون)' : 
-    profile.dietType === 'low_carb' ? 'قليل الكربوهيدرات' :
-    profile.dietType === 'high_protein' ? 'عالي البروتين' :
-    profile.dietType === 'balanced' ? 'متوازن' :
-    profile.dietType === 'intermittent_fasting' ? 'صيام متقطع' :
-    profile.dietType === 'mediterranean' ? 'البحر المتوسط' :
-    profile.dietType === 'paleo' ? 'باليو' :
-    profile.dietType === 'vegan' ? 'نباتي' : 'متوازن'}` : '';
-
-    const prompt = `أنشئ ${mealsPerDay} وجبات عربية.
-
-مستخدم: ${profile.gender === 'male' ? 'ذكر' : 'أنثى'}, ${profile.age}سنة, ${profile.weight}كجم
-هدف: ${profile.goal === 'lose' ? 'فقدان وزن' : profile.goal === 'gain' ? 'زيادة وزن' : 'حفاظ'}${dietTypeInfo}
-
-أهداف يومية:
-- ${targets.calories} سعرة (±5%)
-- ${targets.protein}جم بروتين
-- ${targets.carbs}جم كربوهيدرات
-- ${targets.fat}جم دهون
-
-${dietaryInfo ? dietaryInfo : 'لا قيود'}
-${mealDistribution}
-
-مهم: ${mealsPerDay} وجبات فقط، وجبات عربية بسيطة، قيم غذائية دقيقة`;
-
     console.log('بدء توليد خطة الوجبات...');
-    console.log('Prompt length:', prompt.length);
-    
-    const timeoutPromise = new Promise((_, reject) => {
-      setTimeout(() => reject(new Error('Timeout: AI took too long')), 90000);
-    });
-    
-    const generatePromise = generateObject({
-      messages: [{ role: 'user', content: prompt }],
-      schema: DailyMealPlanSchema
-    });
-    
-    const result = await Promise.race([generatePromise, timeoutPromise]) as any;
+    console.log('الملف الشخصي:', input.profile);
+    console.log('الأهداف الغذائية:', input.targets);
 
-    console.log('تم استلام النتيجة من AI');
+    const mealTypes = ['breakfast', 'lunch', 'dinner', 'snack'];
+    const mealsToGenerate = mealTypes.slice(0, input.profile.mealsPerDay);
 
-    if (!result || !result.meals || !Array.isArray(result.meals)) {
-      throw new Error('النتيجة غير مكتملة من AI');
-    }
+    const caloriesPerMeal = Math.round(input.targets.calories / input.profile.mealsPerDay);
+    const proteinPerMeal = Math.round(input.targets.protein / input.profile.mealsPerDay);
+    const carbsPerMeal = Math.round(input.targets.carbs / input.profile.mealsPerDay);
+    const fatPerMeal = Math.round(input.targets.fat / input.profile.mealsPerDay);
+    const fiberPerMeal = Math.round(input.targets.fiber / input.profile.mealsPerDay);
 
-    const meals = result.meals.map((mealData: any, index: number) => {
-      let mealType: 'breakfast' | 'lunch' | 'dinner' | 'snack' = 'snack';
-      
-      if (index === 0) {
-        mealType = 'breakfast';
-      } else if (profile.mealsPerDay === 2 && index === 1) {
-        mealType = 'lunch';
-      } else if (profile.mealsPerDay === 3) {
-        if (index === 1) mealType = 'lunch';
-        else if (index === 2) mealType = 'dinner';
-      } else if (profile.mealsPerDay === 4) {
-        if (index === 1) mealType = 'lunch';
-        else if (index === 2) mealType = 'dinner';
-        else mealType = 'snack';
-      } else if (profile.mealsPerDay && profile.mealsPerDay >= 5) {
-        if (index === 0) mealType = 'breakfast';
-        else if (index === 2 || (profile.mealsPerDay === 5 && index === 2)) mealType = 'lunch';
-        else if (index === profile.mealsPerDay - 1 || (profile.mealsPerDay === 5 && index === 4)) mealType = 'dinner';
-        else mealType = 'snack';
-      }
-      
-      return {
-        id: `${mealType}-${Date.now()}-${index}`,
-        type: mealType,
-        name: mealData.name || 'وجبة',
-        ingredients: Array.isArray(mealData.ingredients) ? mealData.ingredients : [],
-        instructions: Array.isArray(mealData.instructions) ? mealData.instructions : [],
-        nutrition: mealData.nutrition || { calories: 0, protein: 0, carbs: 0, fat: 0, fiber: 0 },
-        prepTime: mealData.prepTime || 30,
-        servings: mealData.servings || 1
-      };
-    });
-
-    const totalNutrition = meals.reduce((total, meal) => {
-      if (!meal.nutrition) {
-        return total;
-      }
-      return {
-        calories: total.calories + (meal.nutrition.calories || 0),
-        protein: total.protein + (meal.nutrition.protein || 0),
-        carbs: total.carbs + (meal.nutrition.carbs || 0),
-        fat: total.fat + (meal.nutrition.fat || 0),
-        fiber: total.fiber + (meal.nutrition.fiber || 0)
-      };
-    }, { calories: 0, protein: 0, carbs: 0, fat: 0, fiber: 0 });
-
-    console.log('إجمالي القيم الغذائية:', totalNutrition);
-
-    const mealPlan = {
-      id: `plan-${Date.now()}`,
-      date: new Date().toISOString().split('T')[0],
-      meals,
-      totalNutrition
+    const dietTypeDescriptions: Record<string, string> = {
+      keto: 'كيتو (قليل جداً من الكربوهيدرات، عالي الدهون)',
+      low_carb: 'قليل الكربوهيدرات',
+      high_protein: 'عالي البروتين',
+      balanced: 'متوازن',
+      intermittent_fasting: 'صيام متقطع',
+      mediterranean: 'البحر الأبيض المتوسط',
+      paleo: 'باليو',
+      vegan: 'نباتي',
     };
 
-    console.log('تم إعداد خطة الوجبات بنجاح');
-    return mealPlan;
-  });
+    const prompt = `أنت خبير تغذية متخصص في الطعام العربي. قم بتوليد خطة وجبات يومية كاملة بصيغة JSON.
 
-export default generatePlanProcedure;
+معلومات المستخدم:
+- العمر: ${input.profile.age} سنة
+- الوزن: ${input.profile.weight} كجم
+- الطول: ${input.profile.height} سم
+- الجنس: ${input.profile.gender === 'male' ? 'ذكر' : 'أنثى'}
+- مستوى النشاط: ${input.profile.activityLevel}
+- الهدف: ${input.profile.goal === 'lose' ? 'خسارة وزن' : input.profile.goal === 'gain' ? 'زيادة وزن' : 'الحفاظ على الوزن'}
+- نوع النظام الغذائي: ${input.profile.dietType ? dietTypeDescriptions[input.profile.dietType] : 'متوازن'}
+- عدد الوجبات: ${input.profile.mealsPerDay}
+
+الأهداف الغذائية اليومية:
+- السعرات: ${input.targets.calories} سعرة
+- البروتين: ${input.targets.protein} جرام
+- الكربوهيدرات: ${input.targets.carbs} جرام
+- الدهون: ${input.targets.fat} جرام
+- الألياف: ${input.targets.fiber} جرام
+
+القيود الغذائية: ${input.profile.dietaryRestrictions.length > 0 ? input.profile.dietaryRestrictions.join('، ') : 'لا يوجد'}
+الحساسية: ${input.profile.allergies.length > 0 ? input.profile.allergies.join('، ') : 'لا يوجد'}
+الحالات الصحية: ${input.profile.healthConditions.length > 0 ? input.profile.healthConditions.join('، ') : 'لا يوجد'}
+الأطعمة غير المرغوبة: ${input.profile.dislikedFoods.length > 0 ? input.profile.dislikedFoods.join('، ') : 'لا يوجد'}
+المطابخ المفضلة: ${input.profile.preferredCuisines.length > 0 ? input.profile.preferredCuisines.join('، ') : 'جميع المطابخ العربية'}
+
+يجب توليد ${input.profile.mealsPerDay} وجبات (${mealsToGenerate.join('، ')}).
+
+لكل وجبة، يجب أن تحتوي على:
+- السعرات: حوالي ${caloriesPerMeal} سعرة
+- البروتين: حوالي ${proteinPerMeal} جرام
+- الكربوهيدرات: حوالي ${carbsPerMeal} جرام
+- الدهون: حوالي ${fatPerMeal} جرام
+- الألياف: حوالي ${fiberPerMeal} جرام
+
+متطلبات مهمة:
+1. يجب أن تكون جميع الوجبات من الطعام العربي الأصيل
+2. يجب أن تكون الوصفات واقعية وقابلة للتطبيق
+3. يجب أن تكون المكونات متوفرة بسهولة
+4. يجب أن تكون التعليمات واضحة ومفصلة
+5. يجب احترام جميع القيود الغذائية والحساسية
+6. يجب تجنب الأطعمة غير المرغوبة
+7. يجب أن تكون الوجبات متنوعة ولذيذة
+8. يجب أن تكون القيم الغذائية دقيقة قدر الإمكان
+
+أرجع JSON فقط بهذا الشكل بالضبط (بدون أي نص إضافي):
+{
+  "meals": [
+    {
+      "name": "اسم الوجبة بالعربي",
+      "type": "breakfast أو lunch أو dinner أو snack",
+      "ingredients": ["مكون 1 مع الكمية", "مكون 2 مع الكمية"],
+      "instructions": ["خطوة 1", "خطوة 2"],
+      "nutrition": {
+        "calories": رقم,
+        "protein": رقم,
+        "carbs": رقم,
+        "fat": رقم,
+        "fiber": رقم
+      },
+      "prepTime": رقم بالدقائق,
+      "servings": عدد الحصص
+    }
+  ]
+}`;
+
+    try {
+      console.log('إرسال الطلب إلى AI...');
+      const response = await generateText({ messages: [{ role: 'user', content: prompt }] });
+      console.log('استجابة AI:', response);
+
+      let jsonText = response.trim();
+      if (jsonText.startsWith('```json')) {
+        jsonText = jsonText.replace(/```json\n?/g, '').replace(/```\n?/g, '');
+      } else if (jsonText.startsWith('```')) {
+        jsonText = jsonText.replace(/```\n?/g, '');
+      }
+
+      const parsed = JSON.parse(jsonText);
+      
+      if (!parsed.meals || !Array.isArray(parsed.meals)) {
+        throw new Error('Invalid response format from AI');
+      }
+
+      const meals = parsed.meals.map((meal: any, index: number) => ({
+        id: `meal-${Date.now()}-${index}`,
+        name: meal.name,
+        type: meal.type,
+        ingredients: meal.ingredients,
+        instructions: meal.instructions,
+        nutrition: meal.nutrition,
+        prepTime: meal.prepTime,
+        servings: meal.servings,
+      }));
+
+      const totalNutrition = meals.reduce(
+        (acc: { calories: number; protein: number; carbs: number; fat: number; fiber: number }, meal: any) => ({
+          calories: acc.calories + meal.nutrition.calories,
+          protein: acc.protein + meal.nutrition.protein,
+          carbs: acc.carbs + meal.nutrition.carbs,
+          fat: acc.fat + meal.nutrition.fat,
+          fiber: acc.fiber + meal.nutrition.fiber,
+        }),
+        { calories: 0, protein: 0, carbs: 0, fat: 0, fiber: 0 }
+      );
+
+      const mealPlan = {
+        id: `plan-${Date.now()}`,
+        date: new Date().toISOString(),
+        meals,
+        totalNutrition,
+      };
+
+      console.log('تم توليد خطة الوجبات بنجاح:', mealPlan);
+      return mealPlan;
+    } catch (error) {
+      console.error('خطأ في توليد خطة الوجبات:', error);
+      throw new Error('فشل في توليد خطة الوجبات. يرجى المحاولة مرة أخرى.');
+    }
+  });
