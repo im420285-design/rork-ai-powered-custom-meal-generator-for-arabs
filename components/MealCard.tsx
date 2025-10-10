@@ -3,7 +3,8 @@ import {
   View,
   Text,
   TouchableOpacity,
-  StyleSheet
+  StyleSheet,
+  Alert
 } from 'react-native';
 import { 
   Clock, 
@@ -13,9 +14,11 @@ import {
   Wheat, 
   Droplets, 
   ChevronDown,
-  ChevronUp
+  ChevronUp,
+  RefreshCw
 } from 'lucide-react-native';
 import { Meal } from '@/types/nutrition';
+import { useNutritionStore } from '@/providers/nutrition-provider';
 import Colors from '@/constants/colors';
 
 interface Props {
@@ -24,6 +27,7 @@ interface Props {
 
 export default function MealCard({ meal }: Props) {
   const [isExpanded, setIsExpanded] = useState(false);
+  const { regenerateSingleMeal, isGenerating } = useNutritionStore();
 
   const mealTypeLabels = {
     breakfast: 'إفطار',
@@ -37,6 +41,29 @@ export default function MealCard({ meal }: Props) {
     lunch: '#4FD1C7',
     dinner: '#9F7AEA',
     snack: '#48BB78'
+  };
+
+  const handleRegenerateMeal = () => {
+    Alert.alert(
+      'إعادة توليد الوجبة',
+      `هل تريد إعادة توليد وجبة "${meal.name}"؟`,
+      [
+        { text: 'إلغاء', style: 'cancel' },
+        {
+          text: 'نعم، أعد التوليد',
+          onPress: async () => {
+            try {
+              await regenerateSingleMeal(meal.id);
+              Alert.alert('نجاح', 'تم إعادة توليد الوجبة بنجاح!');
+            } catch (error) {
+              console.error('خطأ في إعادة توليد الوجبة:', error);
+              const errorMessage = error instanceof Error ? error.message : 'حدث خطأ غير متوقع';
+              Alert.alert('خطأ', errorMessage);
+            }
+          }
+        }
+      ]
+    );
   };
 
   return (
@@ -59,6 +86,13 @@ export default function MealCard({ meal }: Props) {
             </Text>
           </View>
         </View>
+        <TouchableOpacity 
+          style={styles.regenerateButton}
+          onPress={handleRegenerateMeal}
+          disabled={isGenerating}
+        >
+          <RefreshCw size={16} color={Colors.light.primary} />
+        </TouchableOpacity>
       </View>
 
       <Text style={styles.mealName}>{meal.name}</Text>
@@ -193,6 +227,11 @@ const styles = StyleSheet.create({
   mealTypeText: {
     fontSize: 12,
     fontWeight: '600',
+  },
+  regenerateButton: {
+    padding: 8,
+    borderRadius: 8,
+    backgroundColor: Colors.light.primary + '10',
   },
   mealName: {
     fontSize: 18,

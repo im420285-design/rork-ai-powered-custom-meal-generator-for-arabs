@@ -2,6 +2,7 @@ import createContextHook from '@nkzw/create-context-hook';
 import { useState, useCallback, useMemo } from 'react';
 import { UserProfile, NutritionTargets, DailyMealPlan } from '@/types/nutrition';
 import { useStorage } from '@/providers/storage';
+import { regenerateMeal } from '@/services/meal-generator';
 
 export const [NutritionProvider, useNutritionStore] = createContextHook(() => {
   const { getItem, setItem } = useStorage();
@@ -164,6 +165,52 @@ export const [NutritionProvider, useNutritionStore] = createContextHook(() => {
     }
   }, [setItem]);
 
+  const regenerateSingleMeal = useCallback(async (mealId: string) => {
+    if (!currentMealPlan || !userProfile || !nutritionTargets) {
+      throw new Error('لا توجد خطة وجبات أو ملف شخصي');
+    }
+
+    const mealIndex = currentMealPlan.meals.findIndex(m => m.id === mealId);
+    if (mealIndex === -1) {
+      throw new Error('الوجبة غير موجودة');
+    }
+
+    const meal = currentMealPlan.meals[mealIndex];
+    console.log('إعادة توليد وجبة:', meal.name);
+
+    setIsGenerating(true);
+    try {
+      const newMeal = await regenerateMeal(meal, nutritionTargets, userProfile, meal.type);
+      
+      // استبدال الوجبة القديمة بالجديدة
+      const updatedMeals = [...currentMealPlan.meals];
+      updatedMeals[mealIndex] = newMeal;
+
+      // إعادة حساب الإجماليات
+      const newTotalNutrition = updatedMeals.reduce(
+        (acc, m) => ({
+          calories: acc.calories + (m.nutrition?.calories ?? 0),
+          protein: acc.protein + (m.nutrition?.protein ?? 0),
+          carbs: acc.carbs + (m.nutrition?.carbs ?? 0),
+          fat: acc.fat + (m.nutrition?.fat ?? 0),
+          fiber: acc.fiber + (m.nutrition?.fiber ?? 0),
+        }),
+        { calories: 0, protein: 0, carbs: 0, fat: 0, fiber: 0 }
+      );
+
+      const updatedMealPlan: DailyMealPlan = {
+        ...currentMealPlan,
+        meals: updatedMeals,
+        totalNutrition: newTotalNutrition,
+      };
+
+      setCurrentMealPlan(updatedMealPlan);
+      console.log('تم إعادة توليد الوجبة بنجاح:', newMeal.name);
+    } finally {
+      setIsGenerating(false);
+    }
+  }, [currentMealPlan, userProfile, nutritionTargets, setCurrentMealPlan]);
+
   const validateMacros = useCallback((targets: NutritionTargets): { valid: boolean; message?: string; corrected?: NutritionTargets } => {
     const proteinCals = targets.protein * 4;
     const carbsCals = targets.carbs * 4;
@@ -184,7 +231,10 @@ export const [NutritionProvider, useNutritionStore] = createContextHook(() => {
 
       return {
         valid: false,
-        message: `السعرات الحرارية (${targets.calories}) لا تتوافق مع الماكروز (${Math.round(totalMacroCals)}). يجب أن تكون:\nالبروتين: ${correctedProtein}جم\nالكربوهيدرات: ${correctedCarbs}جم\nالدهون: ${correctedFat}جم`,
+        message: `السعرات الحرارية (${targets.calories}) لا تتوافق مع الماكروز (${Math.round(totalMacroCals)}). يجب أن تكون:
+البروتين: ${correctedProtein}جم
+الكربوهيدرات: ${correctedCarbs}جم
+الدهون: ${correctedFat}جم`,
         corrected: {
           calories: targets.calories,
           protein: correctedProtein,
@@ -210,6 +260,7 @@ export const [NutritionProvider, useNutritionStore] = createContextHook(() => {
     setUserProfile,
     calculateNutritionTargets,
     setCurrentMealPlan,
+    regenerateSingleMeal,
     setIsGenerating,
     loadUserProfile,
     saveUserProfile,
@@ -223,6 +274,7 @@ export const [NutritionProvider, useNutritionStore] = createContextHook(() => {
     setUserProfile,
     calculateNutritionTargets,
     setCurrentMealPlan,
+    regenerateSingleMeal,
     loadUserProfile,
     saveUserProfile,
     updateNutritionTargets,
