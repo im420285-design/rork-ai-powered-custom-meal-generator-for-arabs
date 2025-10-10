@@ -37,6 +37,7 @@
     "expo-system-ui": "~5.0.6",
     "expo-web-browser": "^14.2.0",
     "hono": "^4.9.10",
+    "html2pdf.js": "^0.12.1",
     "lucide-react-native": "^0.475.0",
     "nativewind": "^4.1.23",
     "react": "19.0.0",

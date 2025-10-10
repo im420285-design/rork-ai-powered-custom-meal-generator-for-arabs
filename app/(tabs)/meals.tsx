@@ -3,26 +3,52 @@ import {
   View,
   Text,
   StyleSheet,
-  ScrollView
+  ScrollView,
+  TouchableOpacity,
+  Alert,
+  Platform
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { UtensilsCrossed, Calendar } from 'lucide-react-native';
+import { UtensilsCrossed, Calendar, Download } from 'lucide-react-native';
 import { useNutritionStore } from '@/providers/nutrition-provider';
 import MealCard from '@/components/MealCard';
 import { Meal } from '@/types/nutrition';
 import Colors from '@/constants/colors';
+import { generateMealPlanPDF } from '@/services/pdf-generator';
 
 export default function MealsScreen() {
   const { currentMealPlan } = useNutritionStore();
+  const insets = useSafeAreaInsets();
+
+  const handleGeneratePDF = async () => {
+    if (!currentMealPlan) {
+      Alert.alert('خطأ', 'لا توجد خطة وجبات لتوليد PDF');
+      return;
+    }
+
+    if (Platform.OS !== 'web') {
+      Alert.alert('غير متاح', 'توليد PDF متاح فقط على الويب');
+      return;
+    }
+
+    try {
+      await generateMealPlanPDF(currentMealPlan);
+      Alert.alert('نجاح', 'تم توليد ملف PDF بنجاح!');
+    } catch (error) {
+      console.error('خطأ في توليد PDF:', error);
+      Alert.alert('خطأ', 'فشل في توليد ملف PDF. يرجى المحاولة مرة أخرى.');
+    }
+  };
 
   if (!currentMealPlan || !currentMealPlan.meals || !Array.isArray(currentMealPlan.meals) || currentMealPlan.meals.length === 0) {
     return (
-      <View style={styles.container}>
+      <View style={[styles.container, { paddingTop: insets.top }]}>
         <View style={styles.emptyState}>
           <UtensilsCrossed size={64} color={Colors.light.gray[400]} />
           <Text style={styles.emptyTitle}>لا توجد وجبات بعد</Text>
           <Text style={styles.emptySubtitle}>
-            اذهب إلى الصفحة الرئيسية لتوليد خطة وجباتك
+            اذهب إلى الصفحة الرئيسية لتوليد خطط وجباتك
           </Text>
         </View>
       </View>
@@ -38,7 +64,7 @@ export default function MealsScreen() {
   };
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { paddingTop: insets.top }]}>
       <View style={styles.header}>
         <View style={styles.headerContent}>
           <View style={styles.headerIcon}>
@@ -56,6 +82,13 @@ export default function MealsScreen() {
             </Text>
           </View>
         </View>
+        <TouchableOpacity 
+          style={styles.pdfButton}
+          onPress={handleGeneratePDF}
+        >
+          <Download size={20} color={Colors.light.primary} />
+          <Text style={styles.pdfButtonText}>PDF</Text>
+        </TouchableOpacity>
       </View>
 
       <View style={styles.nutritionSummary}>
@@ -155,6 +188,20 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: Colors.light.gray[500],
     marginTop: 2,
+  },
+  pdfButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+    backgroundColor: Colors.light.primary + '10',
+  },
+  pdfButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: Colors.light.primary,
   },
   nutritionSummary: {
     backgroundColor: Colors.light.gray[50],
